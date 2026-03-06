@@ -693,8 +693,37 @@
       <input type="date" id="sDate">
     </div>
     <div class="hint">
-      All 6 phases will be auto-mapped onto the calendar from your start date. Phase labels and coloured highlights appear on each phase's first day.
+      All phases will be auto-mapped onto the calendar from your start date.
     </div>
+
+    <div style="border-top:1px solid var(--border);margin:16px 0 14px"></div>
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:12px">🤝 Workspace Sharing</div>
+
+    <div class="field">
+      <label>Invite Link</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="wsLinkDisplay" readonly
+          style="flex:1;font-size:11px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;cursor:default"
+          placeholder="Sign in to get your invite link">
+        <button class="btn btn-secondary" onclick="copyInviteLink()" id="copyLinkBtn"
+          style="padding:6px 10px;font-size:12px;white-space:nowrap">🔗 Copy</button>
+      </div>
+      <div id="wsOwnerNote" style="font-size:10px;color:var(--muted);margin-top:5px"></div>
+    </div>
+
+    <div class="field">
+      <label>Join a Workspace</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="sJoinCode" placeholder="Paste invite link or workspace ID…"
+          style="flex:1">
+        <button class="btn btn-primary" onclick="joinFromSettings()"
+          style="padding:6px 12px;font-size:12px;white-space:nowrap">Join</button>
+      </div>
+    </div>
+
+    <button id="wsOwnBtn" class="btn btn-secondary" onclick="switchToOwnWorkspace()"
+      style="display:none;width:100%;margin-bottom:8px;font-size:12px">← Back to my own workspace</button>
+
     <div class="actions">
       <button class="btn btn-danger" onclick="resetAll()">Reset</button>
       <button class="btn btn-secondary" onclick="overlayClose('settingsOverlay')">Cancel</button>
@@ -902,9 +931,11 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // ════════════════════════════════════════
-//  STORAGE  (localStorage + Firestore)
+//  STORAGE  (localStorage + Firestore workspaces)
 // ════════════════════════════════════════
 let saveTimer;
+let currentWorkspaceId = null;   // workspace we're currently writing to
+let snapshotUnsub = null;        // onSnapshot unsubscribe handle
 
 function setSyncDot(state) { // 'syncing' | 'synced' | ''
   const d = document.getElementById('syncDot');
@@ -912,17 +943,20 @@ function setSyncDot(state) { // 'syncing' | 'synced' | ''
   d.className = 'sync-dot' + (state ? ' ' + state : '');
 }
 
+function wsRef(wsId) {
+  return db.collection('workspaces').doc(wsId);
+}
+
 function save() {
   // 1. Save to localStorage immediately (fast, offline-safe)
   try { localStorage.setItem('tomitomi_v1', JSON.stringify(S)); } catch(e) {}
+  if (!currentWorkspaceId) return;
   // 2. Debounce Firestore write (1 s after last change)
   setSyncDot('syncing');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    const user = auth.currentUser;
-    if (!user) return;
     try {
-      await db.collection('planners').doc(user.uid).set({ state: JSON.stringify(S) });
+      await wsRef(currentWorkspaceId).set({ state: JSON.stringify(S) }, { merge: true });
       setSyncDot('synced');
     } catch(e) {
       console.error('Firestore save failed:', e);
@@ -938,19 +972,51 @@ function loadLocal() {
   } catch(e) {}
 }
 
-async function loadFromFirestore(user) {
+function setupSnapshot(ref) {
+  // Detach any previous listener
+  if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
+  snapshotUnsub = ref.onSnapshot(snap => {
+    // Ignore locally-triggered writes to avoid infinite loop
+    if (snap.metadata.hasPendingWrites) return;
+    if (snap.exists && snap.data().state) {
+      try {
+        const remote = JSON.parse(snap.data().state);
+        S = Object.assign(S, remote);
+        localStorage.setItem('tomitomi_v1', JSON.stringify(S));
+        renderApp();
+        setSyncDot('synced');
+      } catch(e) { console.error('Snapshot parse error', e); }
+    }
+  }, err => console.error('onSnapshot error', err));
+}
+
+async function loadWorkspace(wsId, user) {
+  currentWorkspaceId = wsId;
+  localStorage.setItem('tomitomi_wsId', wsId);
+  const ref = wsRef(wsId);
   try {
-    const snap = await db.collection('planners').doc(user.uid).get();
+    const snap = await ref.get();
     if (snap.exists && snap.data().state) {
       const remote = JSON.parse(snap.data().state);
       S = Object.assign(S, remote);
-      localStorage.setItem('tomitomi_v1', JSON.stringify(S)); // cache locally
+      localStorage.setItem('tomitomi_v1', JSON.stringify(S));
     } else {
-      loadLocal(); // first time: use any existing local data
+      // New workspace — seed with current local data then save
+      loadLocal();
+      await ref.set({
+        state: JSON.stringify(S),
+        owner: user.uid,
+        members: [user.uid],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
+    // Add user to members list (no-op if already there)
+    await ref.update({ members: firebase.firestore.FieldValue.arrayUnion(user.uid) });
   } catch(e) {
-    loadLocal(); // offline fallback
+    console.error('loadWorkspace failed', e);
+    loadLocal();
   }
+  setupSnapshot(ref);
 }
 
 async function signInWithGoogle() {
@@ -964,10 +1030,67 @@ async function signInWithGoogle() {
 
 async function signOutUser() {
   if (!confirm('Sign out of tomitomi Planner?')) return;
+  if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
   await auth.signOut();
   document.getElementById('signinOverlay').style.display = 'flex';
   const av = document.getElementById('userAvatar');
   if (av) av.style.display = 'none';
+}
+
+// ════════════════════════════════════════
+//  WORKSPACE SHARING
+// ════════════════════════════════════════
+
+function ownWorkspaceId(user) { return user.uid; }
+
+function inviteLink(wsId) {
+  const base = location.href.split('?')[0].split('#')[0];
+  return base + '?join=' + wsId;
+}
+
+function copyInviteLink() {
+  const user = auth.currentUser;
+  if (!user) return;
+  // Always copy link to user's OWN workspace (so others join theirs)
+  const link = inviteLink(ownWorkspaceId(user));
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = document.getElementById('copyLinkBtn');
+    if (btn) { btn.textContent = '✅ Copied'; setTimeout(() => btn.textContent = '🔗 Copy', 2000); }
+  }).catch(() => {
+    // fallback
+    const el = document.getElementById('wsLinkDisplay');
+    if (el) { el.select(); document.execCommand('copy'); }
+  });
+}
+
+async function joinFromSettings() {
+  const user = auth.currentUser;
+  if (!user) { alert('Please sign in first.'); return; }
+  const raw = document.getElementById('sJoinCode').value.trim();
+  if (!raw) return;
+  // Accept full URL or bare ID
+  let wsId = raw;
+  try {
+    const url = new URL(raw);
+    wsId = url.searchParams.get('join') || raw;
+  } catch(e) { /* not a URL, use as-is */ }
+  if (!wsId || wsId.length < 5) { alert('Invalid workspace ID.'); return; }
+  closeOverlay('settingsOverlay');
+  setSyncDot('syncing');
+  await loadWorkspace(wsId, user);
+  renderApp();
+  setSyncDot('synced');
+  document.getElementById('sJoinCode').value = '';
+}
+
+async function switchToOwnWorkspace() {
+  const user = auth.currentUser;
+  if (!user) return;
+  closeOverlay('settingsOverlay');
+  setSyncDot('syncing');
+  await loadWorkspace(ownWorkspaceId(user), user);
+  renderApp();
+  setSyncDot('synced');
 }
 
 // ════════════════════════════════════════
@@ -1050,6 +1173,9 @@ function init() {
   const now = new Date();
   viewY = now.getFullYear(); viewM = now.getMonth();
 
+  // Check for ?join= invite in URL
+  const urlJoin = new URLSearchParams(location.search).get('join');
+
   auth.onAuthStateChanged(async (user) => {
     if (user) {
       // Hide sign-in screen
@@ -1057,8 +1183,21 @@ function init() {
       // Show user avatar
       const av = document.getElementById('userAvatar');
       if (av) { av.src = user.photoURL || ''; av.style.display = 'block'; }
-      // Load data from Firestore (falls back to localStorage)
-      await loadFromFirestore(user);
+
+      // Determine which workspace to load:
+      // 1. ?join= param takes priority (first time opening invite link)
+      // 2. Previously joined workspace (cached in localStorage)
+      // 3. Own workspace (default)
+      let wsId;
+      if (urlJoin) {
+        wsId = urlJoin;
+        // Remove ?join= from URL bar without reload
+        history.replaceState({}, '', location.pathname);
+      } else {
+        wsId = localStorage.getItem('tomitomi_wsId') || ownWorkspaceId(user);
+      }
+
+      await loadWorkspace(wsId, user);
       renderApp();
       setSyncDot('synced');
     } else {
@@ -1602,6 +1741,27 @@ function clearDay() {
 function openSettings() {
   document.getElementById('sBrand').value = S.brandName;
   document.getElementById('sDate').value  = S.startDate || '';
+
+  // Populate workspace section
+  const user = auth.currentUser;
+  const linkEl = document.getElementById('wsLinkDisplay');
+  const noteEl = document.getElementById('wsOwnerNote');
+  const ownBtn = document.getElementById('wsOwnBtn');
+
+  if (user) {
+    const ownId = ownWorkspaceId(user);
+    linkEl.value = inviteLink(ownId);
+    const isOwn = currentWorkspaceId === ownId;
+    noteEl.textContent = isOwn
+      ? 'Share this link — friends who open it will join your workspace.'
+      : '⚠️ You are currently viewing someone else\'s workspace.';
+    if (ownBtn) ownBtn.style.display = isOwn ? 'none' : 'block';
+  } else {
+    linkEl.value = '';
+    noteEl.textContent = 'Sign in to get your invite link.';
+    if (ownBtn) ownBtn.style.display = 'none';
+  }
+
   openOverlay('settingsOverlay');
 }
 
@@ -1635,15 +1795,29 @@ function updateHeaderDate() {
 async function resetAll() {
   if (!confirm('Reset ALL data? Tasks, notes, and settings will be cleared.')) return;
   localStorage.removeItem('tomitomi_v1');
-  const user = auth.currentUser;
-  if (user) {
-    try { await db.collection('planners').doc(user.uid).delete(); } catch(e) {}
-  }
+  localStorage.removeItem('tomitomi_wsId');
   S = {
     brandName: 'tomitomi', startDate: null,
     phases: JSON.parse(JSON.stringify(DEFAULT_PHASES)),
     completedTasks: {}, dayNotes: {}, openPhases: { 1: true }
   };
+  // Detach snapshot before resetting workspace
+  if (snapshotUnsub) { snapshotUnsub(); snapshotUnsub = null; }
+  const user = auth.currentUser;
+  if (user) {
+    currentWorkspaceId = ownWorkspaceId(user);
+    localStorage.setItem('tomitomi_wsId', currentWorkspaceId);
+    // Overwrite workspace with blank state (don't delete — others might be on it)
+    try {
+      await wsRef(currentWorkspaceId).set({
+        state: JSON.stringify(S),
+        owner: user.uid,
+        members: [user.uid],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(e) { console.error('Reset save failed', e); }
+    setupSnapshot(wsRef(currentWorkspaceId));
+  }
   document.getElementById('brandInput').value = 'tomitomi';
   closeOverlay('settingsOverlay');
   updateHeaderDate();
