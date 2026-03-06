@@ -520,9 +520,13 @@
     }
     .dp-clear-btn:hover { color: #c00; }
 
-    /* Calendar deadline dots */
-    .dl-dot-wrap { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 2px; padding: 0 1px; }
-    .dl-dot { width: 5px; height: 5px; border-radius: 50%; background: #e53935; flex-shrink: 0; }
+    /* Calendar deadline pill */
+    .dl-due-pill {
+      font-size: 9px; font-weight: 700; margin-top: 3px;
+      padding: 1px 5px; border-radius: 99px;
+      background: #fee; color: #c00;
+      white-space: nowrap; display: inline-block;
+    }
 
     /* ── FIREBASE SIGN-IN OVERLAY ── */
     #signinOverlay {
@@ -759,6 +763,9 @@
     <div class="m-date-lbl" id="mLbl"></div>
     <div class="m-heading" id="mHead"></div>
     <div class="m-tags" id="mTags"></div>
+
+    <!-- Due today -->
+    <div id="mDueTasks"></div>
 
     <!-- Active phase tasks shown here -->
     <div class="m-phase-tasks" id="mTasks"></div>
@@ -1461,19 +1468,15 @@ function buildCell(yr, mo, dy, other, isToday, phaseFirstDays) {
     cell.appendChild(nc);
   }
 
-  // Task deadline dots
+  // Task deadline pill
   if (!other) {
     const dlTasks = getTasksWithDeadlineOn(iso);
     if (dlTasks.length) {
-      const wrap = document.createElement('div');
-      wrap.className = 'dl-dot-wrap';
-      wrap.title = dlTasks.map(t => '⏰ ' + t.text).join('\n');
-      dlTasks.slice(0, 4).forEach(() => {
-        const dot = document.createElement('div');
-        dot.className = 'dl-dot';
-        wrap.appendChild(dot);
-      });
-      cell.appendChild(wrap);
+      const pill = document.createElement('div');
+      pill.className = 'dl-due-pill';
+      pill.title = dlTasks.map(t => '⏰ ' + t.text).join('\n');
+      pill.textContent = `⏰ ${dlTasks.length} due`;
+      cell.appendChild(pill);
     }
     cell.addEventListener('click', () => openDayModal(iso));
   }
@@ -1526,6 +1529,26 @@ function openDayModal(iso) {
         `<span class="m-tag" style="background:${p.light};color:${p.color}">${p.emoji} ${p.name}</span>`
       ).join('')
     : `<span style="font-size:11px;color:var(--muted)">No active phase</span>`;
+
+  // Due today section
+  const dueTasks = getTasksWithDeadlineOn(iso);
+  const mDueEl   = document.getElementById('mDueTasks');
+  if (dueTasks.length) {
+    mDueEl.innerHTML = `
+      <div class="m-pt-title" style="color:#c00">⏰ Due today</div>
+      ${dueTasks.map(t => {
+        const checked = S.completedTasks[t.id] || false;
+        // find parent phase for toggleTask
+        const ph = getPhases().find(p => p.tasks.some(x => x.id === t.id));
+        return `<div class="m-task-row">
+          <input type="checkbox" id="mdt${t.id}" ${checked ? 'checked' : ''}
+            onchange="toggleTask('${t.id}', ${ph?.id})">
+          <label for="mdt${t.id}" style="${checked ? 'text-decoration:line-through;color:var(--muted)' : ''}">${escHtml(t.text)}</label>
+        </div>`;
+      }).join('')}`;
+  } else {
+    mDueEl.innerHTML = '';
+  }
 
   // Phase tasks
   const mTasksEl = document.getElementById('mTasks');
