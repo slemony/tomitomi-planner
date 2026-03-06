@@ -431,6 +431,49 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
+    /* ── PHASE EDITING ── */
+    .phase-header-wrap { display: flex; align-items: stretch; position: relative; }
+    .phase-header-wrap:hover .ph-actions { opacity: 1; }
+    .ph-actions {
+      display: flex; flex-direction: column; justify-content: center;
+      gap: 2px; opacity: 0; transition: opacity 0.15s;
+      padding: 0 6px; flex-shrink: 0; border-left: 1px solid var(--border);
+    }
+    .tf-toggle {
+      display: flex; gap: 3px; background: var(--bg);
+      border-radius: 8px; padding: 3px;
+      border: 1px solid var(--border); margin-bottom: 12px;
+    }
+    .tf-btn {
+      flex: 1; padding: 5px 8px; border: none; border-radius: 6px;
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      background: none; color: var(--muted); transition: all 0.15s; font-family: inherit;
+    }
+    .tf-btn.active { background: white; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .tf-date-row { display: flex; gap: 10px; }
+    .tf-date-row .field { flex: 1; min-width: 0; }
+    .emoji-input {
+      width: 58px; font-size: 22px; text-align: center; padding: 6px 4px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+      outline: none; font-family: inherit; cursor: text;
+    }
+    .emoji-input:focus { border-color: var(--accent); }
+    .wk-range-row { display: flex; align-items: center; gap: 8px; }
+    .wk-range-row input {
+      width: 64px; padding: 8px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 13px; text-align: center;
+      font-family: inherit; background: var(--bg); outline: none; color: var(--text);
+    }
+    .wk-range-row input:focus { border-color: var(--accent); }
+    .wk-range-row span { font-size: 12px; color: var(--muted); }
+    .sb-add-phase { padding: 10px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .add-phase-btn {
+      width: 100%; background: none; border: 1.5px dashed var(--border);
+      border-radius: 9px; padding: 8px; font-size: 12px; font-weight: 700;
+      color: var(--muted); cursor: pointer; transition: all 0.12s; font-family: inherit;
+    }
+    .add-phase-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--p6l); }
+
     /* ── FIREBASE SIGN-IN OVERLAY ── */
     #signinOverlay {
       position: fixed; inset: 0; background: var(--bg);
@@ -531,6 +574,9 @@
       <div class="sb-pct" id="sbPct">0%</div>
     </div>
     <div class="sb-scroll" id="phaseList"></div>
+    <div class="sb-add-phase">
+      <button class="add-phase-btn" onclick="openNewPhase()">＋ Add Phase</button>
+    </div>
   </div>
 
   <!-- CALENDAR -->
@@ -599,6 +645,60 @@
       <button class="btn btn-danger" onclick="resetAll()">Reset</button>
       <button class="btn btn-secondary" onclick="overlayClose('settingsOverlay')">Cancel</button>
       <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PHASE EDIT OVERLAY ════ -->
+<div class="overlay" id="phaseEditOverlay" onclick="overlayClose('phaseEditOverlay',event)">
+  <div class="panel">
+    <div class="panel-title" id="peTitle">✏️ Edit Phase</div>
+
+    <!-- Emoji + Name row -->
+    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:14px">
+      <div>
+        <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:5px">Emoji</label>
+        <input type="text" id="peEmoji" class="emoji-input" maxlength="2" placeholder="📌">
+      </div>
+      <div class="field" style="flex:1;margin-bottom:0">
+        <label>Phase Name</label>
+        <input type="text" id="peName" maxlength="40" placeholder="e.g. Brand Identity">
+      </div>
+    </div>
+
+    <!-- Timeframe toggle -->
+    <div style="margin-bottom:4px">
+      <label style="display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:6px">Timeframe</label>
+      <div class="tf-toggle">
+        <button id="tfWeeksBtn" class="tf-btn active" onclick="setTimeframeMode('weeks')">📅 Weeks</button>
+        <button id="tfDatesBtn" class="tf-btn"        onclick="setTimeframeMode('dates')">🗓 Specific Dates</button>
+      </div>
+    </div>
+
+    <!-- Weeks mode -->
+    <div id="tfWeeksMode">
+      <div class="field">
+        <label>Week Range <span style="font-weight:400;text-transform:none;letter-spacing:0">(relative to project start)</span></label>
+        <div class="wk-range-row">
+          <span>Week</span>
+          <input type="number" id="peWkStart" min="1" max="52" value="1">
+          <span>to Week</span>
+          <input type="number" id="peWkEnd"   min="1" max="52" value="2">
+        </div>
+      </div>
+    </div>
+
+    <!-- Dates mode -->
+    <div id="tfDatesMode" style="display:none">
+      <div class="tf-date-row">
+        <div class="field"><label>Start Date</label><input type="date" id="peDateStart"></div>
+        <div class="field"><label>End Date</label>  <input type="date" id="peDateEnd"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="closeOverlay('phaseEditOverlay')">Cancel</button>
+      <button class="btn btn-primary"   onclick="savePhaseEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -831,11 +931,22 @@ function getPhases() {
 }
 
 function phaseRange(phase) {
+  // Specific-dates mode
+  if (phase.useDates && phase.dateStart && phase.dateEnd) {
+    return { s: fromISO(phase.dateStart), e: fromISO(phase.dateEnd) };
+  }
+  // Weeks mode (requires project start date)
   if (!S.startDate) return null;
   const base = fromISO(S.startDate);
   const s = new Date(base); s.setDate(base.getDate() + (phase.weekStart - 1) * 7);
   const e = new Date(base); e.setDate(base.getDate() + phase.weekEnd * 7 - 1);
   return { s, e };
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = fromISO(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
 function phasesOnDate(iso) {
@@ -936,8 +1047,11 @@ function renderPhaseCard(phase) {
   const allDone = done === total && total > 0;
   const isOpen  = S.openPhases[phase.id];
 
-  const tasksHtml = phase.tasks.map(t => renderTaskRow(phase.id, t)).join('');
+  const rangeLabel = (phase.useDates && phase.dateStart && phase.dateEnd)
+    ? `${fmtDate(phase.dateStart)} – ${fmtDate(phase.dateEnd)}`
+    : `Wk ${phase.weekStart}–${phase.weekEnd}`;
 
+  const tasksHtml  = phase.tasks.map(t => renderTaskRow(phase.id, t)).join('');
   const addRowHtml = `
     <div class="add-task-row">
       <button class="add-task-btn" onclick="addTask(${phase.id})">+ Add task</button>
@@ -945,24 +1059,25 @@ function renderPhaseCard(phase) {
 
   return `
   <div class="phase-card" id="pc${phase.id}" style="${allDone ? 'background:linear-gradient(90deg,#f8fef9,#fffef5)' : ''}">
-    <button class="phase-header" onclick="togglePhase(${phase.id})">
-      <span class="ph-emoji">${phase.emoji}</span>
-      <div class="ph-info">
-        <div class="ph-name">${escHtml(phase.name)}</div>
-        <div class="ph-sub" id="phsub${phase.id}">Wk ${phase.weekStart}–${phase.weekEnd} · ${done}/${total}</div>
+    <div class="phase-header-wrap">
+      <div class="phase-header" onclick="togglePhase(${phase.id})">
+        <span class="ph-emoji">${phase.emoji}</span>
+        <div class="ph-info">
+          <div class="ph-name">${escHtml(phase.name)}</div>
+          <div class="ph-sub" id="phsub${phase.id}">${rangeLabel} · ${done}/${total}</div>
+        </div>
+        ${allDone
+          ? `<span class="ph-done-tag">✓ Done</span>`
+          : `<div class="ph-bar-wrap"><div class="ph-bar-fill" id="phbar${phase.id}" style="width:${pct}%;background:${phase.color}"></div></div>`
+        }
+        <span class="ph-chevron ${isOpen ? 'open' : ''}" id="phchev${phase.id}">▼</span>
       </div>
-      ${allDone
-        ? `<span class="ph-done-tag">✓ Done</span>`
-        : `<div class="ph-bar-wrap"><div class="ph-bar-fill" id="phbar${phase.id}" style="width:${pct}%;background:${phase.color}"></div></div>`
-      }
-      <span class="ph-chevron ${isOpen ? 'open' : ''}" id="phchev${phase.id}">▼</span>
-    </button>
+      <div class="ph-actions">
+        <button class="t-btn" onclick="openPhaseEdit(${phase.id})" title="Edit phase">✏️</button>
+        <button class="t-btn del" onclick="deletePhase(${phase.id})" title="Delete phase">🗑</button>
+      </div>
+    </div>
     <div class="task-list ${isOpen ? 'open' : ''}" id="tl${phase.id}">
-      <div class="ph-wk-edit" id="wkedit${phase.id}" style="display:none;">
-        Wk <input class="wk-input" id="wks${phase.id}" type="number" min="1" max="20" value="${phase.weekStart}">
-        – <input class="wk-input" id="wke${phase.id}" type="number" min="1" max="20" value="${phase.weekEnd}">
-        <button class="wk-save-btn" onclick="saveWeeks(${phase.id})">OK</button>
-      </div>
       <div id="tasks-inner-${phase.id}">
         ${tasksHtml}
       </div>
@@ -1092,8 +1207,11 @@ function toggleTask(taskId, phaseId) {
   if (phase) {
     const done  = phase.tasks.filter(t => S.completedTasks[t.id]).length;
     const total = phase.tasks.length;
+    const rangeLabel = (phase.useDates && phase.dateStart && phase.dateEnd)
+      ? `${fmtDate(phase.dateStart)} – ${fmtDate(phase.dateEnd)}`
+      : `Wk ${phase.weekStart}–${phase.weekEnd}`;
     const sub = document.getElementById('phsub' + phaseId);
-    if (sub) sub.textContent = `Wk ${phase.weekStart}–${phase.weekEnd} · ${done}/${total}`;
+    if (sub) sub.textContent = `${rangeLabel} · ${done}/${total}`;
     const bar = document.getElementById('phbar' + phaseId);
     if (bar) bar.style.width = (total ? (done/total)*100 : 0) + '%';
   }
@@ -1418,6 +1536,126 @@ function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 function overlayClose(id, e) {
   if (!e || e.target.id === id) closeOverlay(id);
+}
+
+// ════════════════════════════════════════
+//  PHASE EDITING
+// ════════════════════════════════════════
+const PHASE_COLORS = [
+  { color: '#f4845f', light: '#fde8df' },
+  { color: '#f5a623', light: '#fef3cd' },
+  { color: '#50b86c', light: '#e6f4ea' },
+  { color: '#4a9edd', light: '#ddeeff' },
+  { color: '#a27be8', light: '#ede6fa' },
+  { color: '#e84a8a', light: '#fce3f0' },
+  { color: '#00bcd4', light: '#e0f7fa' },
+  { color: '#795548', light: '#efebe9' },
+];
+
+let editingPhaseId = null;  // null = creating new
+let currentTfMode  = 'weeks';
+
+function ensurePhases() {
+  if (!S.phases) S.phases = JSON.parse(JSON.stringify(DEFAULT_PHASES));
+}
+
+function openPhaseEdit(phaseId) {
+  ensurePhases();
+  editingPhaseId = phaseId;
+  const phase = S.phases.find(p => p.id === phaseId);
+  if (!phase) return;
+  document.getElementById('peTitle').textContent   = '✏️ Edit Phase';
+  document.getElementById('peEmoji').value         = phase.emoji;
+  document.getElementById('peName').value          = phase.name;
+  document.getElementById('peWkStart').value       = phase.weekStart || 1;
+  document.getElementById('peWkEnd').value         = phase.weekEnd   || 2;
+  document.getElementById('peDateStart').value     = phase.dateStart || '';
+  document.getElementById('peDateEnd').value       = phase.dateEnd   || '';
+  setTimeframeMode(phase.useDates ? 'dates' : 'weeks');
+  openOverlay('phaseEditOverlay');
+}
+
+function openNewPhase() {
+  ensurePhases();
+  editingPhaseId = null;
+  const phases  = S.phases;
+  const nextWk  = phases.length ? Math.max(...phases.map(p => p.weekEnd || 0)) + 1 : 1;
+  document.getElementById('peTitle').textContent   = '➕ New Phase';
+  document.getElementById('peEmoji').value         = '📌';
+  document.getElementById('peName').value          = '';
+  document.getElementById('peWkStart').value       = nextWk;
+  document.getElementById('peWkEnd').value         = nextWk + 1;
+  document.getElementById('peDateStart').value     = '';
+  document.getElementById('peDateEnd').value       = '';
+  setTimeframeMode('weeks');
+  openOverlay('phaseEditOverlay');
+  setTimeout(() => document.getElementById('peName').focus(), 60);
+}
+
+function setTimeframeMode(mode) {
+  currentTfMode = mode;
+  document.getElementById('tfWeeksMode').style.display = mode === 'weeks' ? 'block' : 'none';
+  document.getElementById('tfDatesMode').style.display = mode === 'dates' ? 'block' : 'none';
+  document.getElementById('tfWeeksBtn').classList.toggle('active', mode === 'weeks');
+  document.getElementById('tfDatesBtn').classList.toggle('active', mode === 'dates');
+}
+
+function applyTimeframeToPhase(phase) {
+  if (currentTfMode === 'dates') {
+    phase.useDates  = true;
+    phase.dateStart = document.getElementById('peDateStart').value;
+    phase.dateEnd   = document.getElementById('peDateEnd').value;
+  } else {
+    phase.useDates  = false;
+    const ws = parseInt(document.getElementById('peWkStart').value);
+    const we = parseInt(document.getElementById('peWkEnd').value);
+    phase.weekStart = (!isNaN(ws) && ws >= 1) ? ws : 1;
+    phase.weekEnd   = (!isNaN(we) && we > phase.weekStart) ? we : phase.weekStart + 1;
+  }
+}
+
+function savePhaseEdit() {
+  const emoji = document.getElementById('peEmoji').value.trim() || '📌';
+  const name  = document.getElementById('peName').value.trim();
+  if (!name) { document.getElementById('peName').focus(); return; }
+
+  ensurePhases();
+  if (editingPhaseId === null) {
+    // Create new phase
+    const ci = S.phases.length % PHASE_COLORS.length;
+    const newPhase = {
+      id: Date.now(), emoji, name,
+      color: PHASE_COLORS[ci].color, light: PHASE_COLORS[ci].light,
+      weekStart: 1, weekEnd: 2, useDates: false, dateStart: null, dateEnd: null,
+      tasks: []
+    };
+    applyTimeframeToPhase(newPhase);
+    S.phases.push(newPhase);
+  } else {
+    const phase = S.phases.find(p => p.id === editingPhaseId);
+    if (!phase) return;
+    phase.emoji = emoji;
+    phase.name  = name;
+    applyTimeframeToPhase(phase);
+  }
+
+  save();
+  closeOverlay('phaseEditOverlay');
+  renderSidebar();
+  renderCalendar();
+  renderProgress();
+}
+
+function deletePhase(phaseId) {
+  if (!confirm('Delete this phase and all its tasks?')) return;
+  ensurePhases();
+  const phase = S.phases.find(p => p.id === phaseId);
+  if (phase) phase.tasks.forEach(t => delete S.completedTasks[t.id]);
+  S.phases = S.phases.filter(p => p.id !== phaseId);
+  save();
+  renderSidebar();
+  renderCalendar();
+  renderProgress();
 }
 
 // ════════════════════════════════════════
