@@ -474,6 +474,56 @@
     }
     .add-phase-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--p6l); }
 
+    /* ── TASK DEADLINE ── */
+    .t-dl-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: 99px; background: var(--p4l); color: var(--p4);
+      cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: all 0.12s;
+    }
+    .t-dl-badge:hover  { background: var(--p4); color: white; }
+    .t-dl-badge.soon   { background: #fff3e0; color: #e65100; }
+    .t-dl-badge.soon:hover { background: #e65100; color: white; }
+    .t-dl-badge.overdue { background: #fee; color: #c00; }
+    .t-dl-badge.overdue:hover { background: #c00; color: white; }
+
+    .dl-picker-row {
+      padding: 5px 2px 7px 19px; border-bottom: 1px solid #f8f2ea;
+      display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+      background: #fdfaf7;
+    }
+    .dp-toggle {
+      display: flex; border: 1px solid var(--border); border-radius: 6px;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .dp-tab {
+      padding: 3px 9px; border: none; font-size: 10px; font-weight: 700;
+      cursor: pointer; background: var(--bg); color: var(--muted);
+      transition: all 0.12s; font-family: inherit;
+    }
+    .dp-tab.active { background: var(--accent); color: white; }
+    .dp-num {
+      width: 52px; padding: 3px 6px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 12px; text-align: center;
+      font-family: inherit; background: white; outline: none; color: var(--text);
+    }
+    .dp-num:focus { border-color: var(--accent); }
+    .dp-date {
+      padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 11px; font-family: inherit; background: white;
+      outline: none; color: var(--text);
+    }
+    .dp-date:focus { border-color: var(--accent); }
+    .dp-unit { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    .dp-clear-btn {
+      font-size: 10px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 2px 4px; font-family: inherit;
+    }
+    .dp-clear-btn:hover { color: #c00; }
+
+    /* Calendar deadline dots */
+    .dl-dot-wrap { display: flex; gap: 2px; flex-wrap: wrap; margin-top: 2px; padding: 0 1px; }
+    .dl-dot { width: 5px; height: 5px; border-radius: 50%; background: #e53935; flex-shrink: 0; }
+
     /* ── FIREBASE SIGN-IN OVERLAY ── */
     #signinOverlay {
       position: fixed; inset: 0; background: var(--bg);
@@ -1074,7 +1124,7 @@ function renderPhaseCard(phase) {
       </div>
       <div class="ph-actions">
         <button class="t-btn" onclick="openPhaseEdit(${phase.id})" title="Edit phase">✏️</button>
-        <button class="t-btn del" onclick="deletePhase(${phase.id})" title="Delete phase">🗑</button>
+        <button class="t-btn del" onclick="deletePhase(${phase.id})" title="Delete phase">×</button>
       </div>
     </div>
     <div class="task-list ${isOpen ? 'open' : ''}" id="tl${phase.id}">
@@ -1087,8 +1137,9 @@ function renderPhaseCard(phase) {
 }
 
 function renderTaskRow(phaseId, task) {
-  const checked = S.completedTasks[task.id] || false;
-  const isEditing = editingTask && editingTask.phaseId === phaseId && editingTask.taskId === task.id;
+  const checked      = S.completedTasks[task.id] || false;
+  const isEditing    = editingTask    && editingTask.phaseId    === phaseId && editingTask.taskId    === task.id;
+  const isEditingDl  = editingDeadline && editingDeadline.taskId === task.id;
 
   if (isEditing) {
     return `
@@ -1105,16 +1156,51 @@ function renderTaskRow(phaseId, task) {
     </div>`;
   }
 
+  const hasDl      = !!(task.deadline || task.duration);
+  const badgeHtml  = hasDl
+    ? `<span class="t-dl-badge ${getDeadlineClass(task)}"
+         onclick="openDeadlinePicker('${task.id}',${phaseId})"
+         title="Edit deadline">${fmtDeadlineBadge(task)}</span>`
+    : '';
+  const pickerHtml = isEditingDl ? renderDeadlinePicker(task, phaseId) : '';
+
   return `
   <div class="task-row" id="tr${task.id}">
     <input class="t-cb" type="checkbox" id="cb${task.id}"
       ${checked ? 'checked' : ''}
       onchange="toggleTask('${task.id}', ${phaseId})">
     <label class="t-text ${checked ? 'done' : ''}" for="cb${task.id}">${escHtml(task.text)}</label>
+    ${badgeHtml}
     <div class="t-actions">
+      <button class="t-btn" onclick="openDeadlinePicker('${task.id}',${phaseId})" title="Set deadline">⏰</button>
       <button class="t-btn" onclick="startEdit(${phaseId},'${task.id}')" title="Edit">✏️</button>
       <button class="t-btn del" onclick="deleteTask(${phaseId},'${task.id}')" title="Delete">×</button>
     </div>
+  </div>
+  ${pickerHtml}`;
+}
+
+function renderDeadlinePicker(task, phaseId) {
+  const isDays = currentDpMode === 'days';
+  const hasDl  = !!(task.deadline || task.duration);
+  return `
+  <div class="dl-picker-row" id="dlp${task.id}">
+    <div class="dp-toggle">
+      <button class="dp-tab ${isDays ? 'active':''}  " onclick="setDpMode('days','${task.id}',${phaseId})">Days</button>
+      <button class="dp-tab ${!isDays ? 'active':''}" onclick="setDpMode('date','${task.id}',${phaseId})">Date</button>
+    </div>
+    ${isDays
+      ? `<input class="dp-num" id="dpn${task.id}" type="number" min="1" max="365"
+           value="${task.duration || ''}" placeholder="e.g. 7"
+           onkeydown="if(event.key==='Enter')saveDeadline('${task.id}',${phaseId});if(event.key==='Escape')closeDeadlinePicker('${task.id}',${phaseId})">
+         <span class="dp-unit">days to complete</span>`
+      : `<input class="dp-date" id="dpd${task.id}" type="date"
+           value="${task.deadline || ''}"
+           onkeydown="if(event.key==='Escape')closeDeadlinePicker('${task.id}',${phaseId})">`
+    }
+    <button class="t-confirm-btn ok"     onclick="saveDeadline('${task.id}',${phaseId})">✓</button>
+    <button class="t-confirm-btn cancel" onclick="closeDeadlinePicker('${task.id}',${phaseId})">✕</button>
+    ${hasDl ? `<button class="dp-clear-btn" onclick="clearDeadline('${task.id}',${phaseId})">clear</button>` : ''}
   </div>`;
 }
 
@@ -1124,6 +1210,7 @@ function escHtml(s) {
 
 // ── Task CRUD ──
 function startEdit(phaseId, taskId) {
+  editingDeadline = null;           // close any open deadline picker
   editingTask = { phaseId, taskId, isNew: false };
   rerenderPhase(phaseId);
   setTimeout(() => {
@@ -1374,7 +1461,20 @@ function buildCell(yr, mo, dy, other, isToday, phaseFirstDays) {
     cell.appendChild(nc);
   }
 
+  // Task deadline dots
   if (!other) {
+    const dlTasks = getTasksWithDeadlineOn(iso);
+    if (dlTasks.length) {
+      const wrap = document.createElement('div');
+      wrap.className = 'dl-dot-wrap';
+      wrap.title = dlTasks.map(t => '⏰ ' + t.text).join('\n');
+      dlTasks.slice(0, 4).forEach(() => {
+        const dot = document.createElement('div');
+        dot.className = 'dl-dot';
+        wrap.appendChild(dot);
+      });
+      cell.appendChild(wrap);
+    }
     cell.addEventListener('click', () => openDayModal(iso));
   }
   return cell;
@@ -1536,6 +1636,113 @@ function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
 function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
 function overlayClose(id, e) {
   if (!e || e.target.id === id) closeOverlay(id);
+}
+
+// ════════════════════════════════════════
+//  TASK DEADLINE / DURATION
+// ════════════════════════════════════════
+let editingDeadline = null;   // { taskId, phaseId }
+let currentDpMode   = 'days'; // 'days' | 'date'
+
+function openDeadlinePicker(taskId, phaseId) {
+  if (editingTask) { editingTask = null; }  // close any text-edit
+  const phase = getPhases().find(p => p.id === phaseId);
+  const task  = phase?.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  // Pre-select mode based on what's already set
+  currentDpMode   = task.deadline ? 'date' : 'days';
+  editingDeadline = { taskId, phaseId };
+  rerenderPhase(phaseId);
+  setTimeout(() => {
+    const inp = document.getElementById('dpn' + taskId) || document.getElementById('dpd' + taskId);
+    if (inp) { inp.focus(); if (inp.type === 'number') inp.select(); }
+  }, 30);
+}
+
+function closeDeadlinePicker(taskId, phaseId) {
+  editingDeadline = null;
+  rerenderPhase(phaseId);
+}
+
+function setDpMode(mode, taskId, phaseId) {
+  currentDpMode = mode;
+  rerenderPhase(phaseId);
+  setTimeout(() => {
+    const inp = document.getElementById('dpn' + taskId) || document.getElementById('dpd' + taskId);
+    if (inp) inp.focus();
+  }, 30);
+}
+
+function saveDeadline(taskId, phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  const task  = phase?.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  if (currentDpMode === 'days') {
+    const days = parseInt(document.getElementById('dpn' + taskId)?.value);
+    if (!isNaN(days) && days > 0) { task.duration = days; task.deadline = null; }
+  } else {
+    const date = document.getElementById('dpd' + taskId)?.value;
+    if (date) { task.deadline = date; task.duration = null; }
+  }
+  editingDeadline = null;
+  save();
+  rerenderPhase(phaseId);
+  renderCalendar();
+}
+
+function clearDeadline(taskId, phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  const task  = phase?.tasks.find(t => t.id === taskId);
+  if (task) { task.deadline = null; task.duration = null; }
+  editingDeadline = null;
+  save();
+  rerenderPhase(phaseId);
+  renderCalendar();
+}
+
+function fmtDeadlineBadge(task) {
+  if (task.deadline) {
+    return fromISO(task.deadline)
+      .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  }
+  if (task.duration) return task.duration + 'd';
+  return '';
+}
+
+function getDeadlineClass(task) {
+  if (!task.deadline) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dl    = fromISO(task.deadline);
+  const diff  = Math.floor((dl - today) / 86400000);
+  if (diff < 0) return 'overdue';
+  if (diff <= 3) return 'soon';
+  return '';
+}
+
+function getTaskDeadlineDate(task, phase) {
+  if (task.deadline) return fromISO(task.deadline);
+  if (task.duration) {
+    const r = phaseRange(phase);
+    if (r) {
+      const d = new Date(r.s);
+      d.setDate(d.getDate() + task.duration - 1);
+      return d;
+    }
+  }
+  return null;
+}
+
+function getTasksWithDeadlineOn(iso) {
+  const results = [];
+  getPhases().forEach(phase => {
+    phase.tasks.forEach(task => {
+      const dl = getTaskDeadlineDate(task, phase);
+      if (!dl) return;
+      if (toISO(dl.getFullYear(), dl.getMonth(), dl.getDate()) === iso)
+        results.push(task);
+    });
+  });
+  return results;
 }
 
 // ════════════════════════════════════════
