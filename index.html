@@ -431,6 +431,35 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
+    /* ── FIREBASE SIGN-IN OVERLAY ── */
+    #signinOverlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; z-index: 9999; gap: 18px;
+    }
+    #signinOverlay h1 { font-size: 24px; font-weight: 800; color: var(--text); }
+    #signinOverlay p  { color: var(--muted); text-align: center; max-width: 280px; font-size: 14px; }
+    .signin-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 24px; border: 1.5px solid var(--border);
+      border-radius: 14px; background: white; cursor: pointer;
+      font-size: 15px; font-weight: 600; color: var(--text);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: box-shadow 0.2s;
+    }
+    .signin-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.14); }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      cursor: pointer; border: 2px solid var(--border);
+      object-fit: cover; display: none;
+    }
+    .sync-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ccc; flex-shrink: 0; transition: background 0.3s;
+    }
+    .sync-dot.syncing { background: var(--accent); animation: pulse 1s infinite; }
+    .sync-dot.synced  { background: #50b86c; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
     /* ── RESPONSIVE: MOBILE ── */
     @media (max-width: 767px) {
       .tab-bar { display: flex; }
@@ -459,8 +488,23 @@
       .note-chip { display: none; }
     }
   </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
+
+<!-- ════ SIGN-IN OVERLAY ════ -->
+<div id="signinOverlay">
+  <div style="font-size:52px">🐾</div>
+  <h1>tomitomi Planner</h1>
+  <p>Sign in to save your planner to the cloud and sync across all your devices.</p>
+  <button class="signin-btn" onclick="signInWithGoogle()">
+    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="Google">
+    Sign in with Google
+  </button>
+</div>
 
 <!-- ════ HEADER ════ -->
 <div class="header">
@@ -472,7 +516,9 @@
     <div class="prog-lbl" id="progLbl">0 / 31</div>
   </div>
   <div class="h-date" id="hDate">📅 No start date</div>
+  <div class="sync-dot" id="syncDot" title="Sync status"></div>
   <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+  <img class="user-avatar" id="userAvatar" onclick="signOutUser()" title="Sign out" alt="You">
 </div>
 
 <!-- ════ MAIN ════ -->
@@ -683,16 +729,88 @@ const MONTHS = ['January','February','March','April','May','June',
 const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 // ════════════════════════════════════════
-//  STORAGE
+//  FIREBASE CONFIG
+//  ⚠️ Replace with your Firebase project config
 // ════════════════════════════════════════
-function save() {
-  try { localStorage.setItem('tomitomi_v1', JSON.stringify(S)); } catch(e) {}
+const firebaseConfig = {
+  apiKey:            "AIzaSyBEuwPPgt2PGlgOlswZvK4WymiMGfXAwuU",
+  authDomain:        "tomitomi-planner.firebaseapp.com",
+  projectId:         "tomitomi-planner",
+  storageBucket:     "tomitomi-planner.firebasestorage.app",
+  messagingSenderId: "257624269726",
+  appId:             "1:257624269726:web:edbc928d1530ac8d2fec8f"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ════════════════════════════════════════
+//  STORAGE  (localStorage + Firestore)
+// ════════════════════════════════════════
+let saveTimer;
+
+function setSyncDot(state) { // 'syncing' | 'synced' | ''
+  const d = document.getElementById('syncDot');
+  if (!d) return;
+  d.className = 'sync-dot' + (state ? ' ' + state : '');
 }
-function load() {
+
+function save() {
+  // 1. Save to localStorage immediately (fast, offline-safe)
+  try { localStorage.setItem('tomitomi_v1', JSON.stringify(S)); } catch(e) {}
+  // 2. Debounce Firestore write (1 s after last change)
+  setSyncDot('syncing');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await db.collection('planners').doc(user.uid).set({ state: JSON.stringify(S) });
+      setSyncDot('synced');
+    } catch(e) {
+      console.error('Firestore save failed:', e);
+      setSyncDot('');
+    }
+  }, 1000);
+}
+
+function loadLocal() {
   try {
     const r = localStorage.getItem('tomitomi_v1');
     if (r) S = Object.assign(S, JSON.parse(r));
   } catch(e) {}
+}
+
+async function loadFromFirestore(user) {
+  try {
+    const snap = await db.collection('planners').doc(user.uid).get();
+    if (snap.exists && snap.data().state) {
+      const remote = JSON.parse(snap.data().state);
+      S = Object.assign(S, remote);
+      localStorage.setItem('tomitomi_v1', JSON.stringify(S)); // cache locally
+    } else {
+      loadLocal(); // first time: use any existing local data
+    }
+  } catch(e) {
+    loadLocal(); // offline fallback
+  }
+}
+
+async function signInWithGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+  } catch(e) {
+    alert('Sign-in failed. Please try again.\n\n' + e.message);
+  }
+}
+
+async function signOutUser() {
+  if (!confirm('Sign out of tomitomi Planner?')) return;
+  await auth.signOut();
+  document.getElementById('signinOverlay').style.display = 'flex';
+  const av = document.getElementById('userAvatar');
+  if (av) av.style.display = 'none';
 }
 
 // ════════════════════════════════════════
@@ -744,20 +862,41 @@ function doneTasks()  { return Object.values(S.completedTasks).filter(Boolean).l
 // ════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════
-function init() {
-  load();
-  if (!S.phases) S.phases = JSON.parse(JSON.stringify(DEFAULT_PHASES));
-  const now = new Date();
-  viewY = now.getFullYear(); viewM = now.getMonth();
+let appInitialised = false;
 
+function renderApp() {
+  if (!S.phases) S.phases = JSON.parse(JSON.stringify(DEFAULT_PHASES));
   const bi = document.getElementById('brandInput');
   bi.value = S.brandName;
-  bi.addEventListener('input', e => { S.brandName = e.target.value; save(); });
-
+  if (!appInitialised) {
+    bi.addEventListener('input', e => { S.brandName = e.target.value; save(); });
+    appInitialised = true;
+  }
   renderSidebar();
   renderProgress();
   renderCalendar();
   updateHeaderDate();
+}
+
+function init() {
+  const now = new Date();
+  viewY = now.getFullYear(); viewM = now.getMonth();
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      // Hide sign-in screen
+      document.getElementById('signinOverlay').style.display = 'none';
+      // Show user avatar
+      const av = document.getElementById('userAvatar');
+      if (av) { av.src = user.photoURL || ''; av.style.display = 'block'; }
+      // Load data from Firestore (falls back to localStorage)
+      await loadFromFirestore(user);
+      renderApp();
+      setSyncDot('synced');
+    } else {
+      document.getElementById('signinOverlay').style.display = 'flex';
+    }
+  });
 }
 
 // ════════════════════════════════════════
@@ -1252,9 +1391,13 @@ function updateHeaderDate() {
   }
 }
 
-function resetAll() {
+async function resetAll() {
   if (!confirm('Reset ALL data? Tasks, notes, and settings will be cleared.')) return;
   localStorage.removeItem('tomitomi_v1');
+  const user = auth.currentUser;
+  if (user) {
+    try { await db.collection('planners').doc(user.uid).delete(); } catch(e) {}
+  }
   S = {
     brandName: 'tomitomi', startDate: null,
     phases: JSON.parse(JSON.stringify(DEFAULT_PHASES)),
