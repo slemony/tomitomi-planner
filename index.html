@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🐾 tomitomi Planner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #fdf8f4;
+      --card: #ffffff;
+      --text: #2d2416;
+      --muted: #7a6651;
+      --border: #e8d9c5;
+      --accent: #e84a8a;
+      --p1: #f4845f; --p1l: #fde8df;
+      --p2: #f5a623; --p2l: #fef3cd;
+      --p3: #50b86c; --p3l: #e6f4ea;
+      --p4: #4a9edd; --p4l: #ddeeff;
+      --p5: #a27be8; --p5l: #ede6fa;
+      --p6: #e84a8a; --p6l: #fce3f0;
+      --tab-h: 58px;
+      --header-h: 52px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    .header {
+      height: var(--header-h);
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      flex-shrink: 0;
+      z-index: 20;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .header-logo { font-size: 22px; flex-shrink: 0; }
+    .brand-input {
+      font-size: 15px; font-weight: 800;
+      color: var(--text); border: none; background: transparent;
+      outline: none; width: 110px; letter-spacing: -0.3px;
+    }
+    .brand-input:focus {
+      background: var(--bg); border-radius: 6px; padding: 2px 6px;
+    }
+    .h-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+    .h-progress { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .prog-track {
+      height: 6px; background: var(--border); border-radius: 99px; overflow: hidden;
+      width: 100px; flex-shrink: 0;
+    }
+    .prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #f4845f, #e84a8a);
+      border-radius: 99px; transition: width 0.4s ease;
+    }
+    .prog-lbl { font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .h-date { font-size: 11px; color: var(--muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+    .icon-btn {
+      width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+      background: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 15px; flex-shrink: 0; transition: background 0.12s;
+    }
+    .icon-btn:hover { background: var(--bg); }
+
+    /* ── MAIN ── */
+    .main {
+      flex: 1; overflow: hidden;
+      display: flex; flex-direction: row;
+      position: relative;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 300px; flex-shrink: 0;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sb-head {
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .sb-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+    .sb-pct { font-size: 11px; font-weight: 700; color: var(--accent); }
+    .sb-scroll { overflow-y: auto; flex: 1; }
+
+    /* Phase card */
+    .phase-card { border-bottom: 1px solid var(--border); }
+    .phase-header {
+      width: 100%; text-align: left; background: none; border: none;
+      padding: 10px 14px; cursor: pointer; display: flex;
+      align-items: center; gap: 8px; transition: background 0.1s;
+    }
+    .phase-header:hover { background: #faf4ee; }
+    .ph-emoji { font-size: 15px; flex-shrink: 0; }
+    .ph-info { flex: 1; min-width: 0; }
+    .ph-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .ph-sub  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .ph-bar-wrap { width: 30px; height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .ph-bar-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+    .ph-done-tag {
+      font-size: 10px; background: #e6f4ea; color: #276c3a;
+      border-radius: 99px; padding: 1px 7px; font-weight: 700;
+    }
+    .ph-chevron { font-size: 9px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
+    .ph-chevron.open { transform: rotate(180deg); }
+
+    /* Task list */
+    .task-list { display: none; padding: 0 10px 8px 36px; }
+    .task-list.open { display: block; }
+
+    .task-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 2px; border-bottom: 1px solid #f8f2ea;
+      position: relative;
+    }
+    .task-row:last-child { border-bottom: none; }
+    .task-row .t-cb {
+      width: 13px; height: 13px; cursor: pointer; flex-shrink: 0;
+      accent-color: var(--accent); margin-top: 1px;
+    }
+    .task-row .t-cb:disabled { opacity: 0.4; }
+    .task-row .t-text {
+      flex: 1; font-size: 12px; line-height: 1.4; cursor: pointer;
+      color: var(--text);
+    }
+    .task-row .t-text.done { text-decoration: line-through; color: var(--muted); }
+    .task-row .t-actions {
+      display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0;
+    }
+    .task-row:hover .t-actions { opacity: 1; }
+    .t-btn {
+      width: 22px; height: 22px; border: none; background: none; cursor: pointer;
+      border-radius: 5px; font-size: 12px; display: flex; align-items: center;
+      justify-content: center; color: var(--muted); transition: background 0.1s;
+    }
+    .t-btn:hover { background: var(--border); color: var(--text); }
+    .t-btn.del:hover { background: #fee; color: #c00; }
+
+    /* Inline edit mode */
+    .task-row.editing .t-text { display: none; }
+    .task-row.editing .t-actions { display: none; }
+    .t-edit-input {
+      flex: 1; font-size: 12px; padding: 3px 7px;
+      border: 1px solid var(--accent); border-radius: 6px;
+      background: white; outline: none; font-family: inherit;
+      color: var(--text);
+    }
+    .t-edit-btns {
+      display: flex; gap: 2px; flex-shrink: 0;
+    }
+    .t-confirm-btn {
+      width: 22px; height: 22px; border: none; cursor: pointer;
+      border-radius: 5px; font-size: 12px; display: flex;
+      align-items: center; justify-content: center; font-weight: 700;
+    }
+    .t-confirm-btn.ok { background: #e6f4ea; color: #276c3a; }
+    .t-confirm-btn.cancel { background: #fee; color: #c00; }
+
+    /* Add task button */
+    .add-task-row {
+      padding: 6px 0 4px;
+      display: flex; justify-content: flex-start;
+    }
+    .add-task-btn {
+      background: none; border: 1px dashed var(--border); border-radius: 7px;
+      padding: 4px 10px; font-size: 11px; font-weight: 700; color: var(--muted);
+      cursor: pointer; transition: all 0.12s;
+    }
+    .add-task-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--p6l); }
+
+    /* Wk range edit chip */
+    .ph-wk-edit {
+      display: flex; align-items: center; gap: 4px; margin-top: 3px;
+    }
+    .wk-input {
+      width: 30px; font-size: 10px; padding: 1px 4px;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--bg); color: var(--text); outline: none;
+      text-align: center; font-family: inherit;
+    }
+    .wk-input:focus { border-color: var(--accent); }
+    .wk-save-btn {
+      font-size: 10px; padding: 1px 5px; border: none;
+      background: var(--accent); color: white; border-radius: 4px;
+      cursor: pointer; font-weight: 700;
+    }
+
+    /* ── CALENDAR ── */
+    .cal-area {
+      flex: 1; overflow-y: auto; padding: 16px;
+    }
+    .cal-wrap { max-width: 820px; margin: 0 auto; }
+
+    .start-prompt {
+      background: linear-gradient(135deg, #fff8ee, #fff0f8);
+      border: 1.5px dashed #f5a623; border-radius: 14px;
+      padding: 16px; text-align: center; margin-bottom: 14px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .start-prompt:hover { background: linear-gradient(135deg, #ffefd0, #ffe8f4); }
+    .start-prompt h4 { font-size: 14px; color: #7a4a00; margin-bottom: 4px; }
+    .start-prompt p  { font-size: 11px; color: #a08060; }
+
+    .month-nav {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .month-nav h2 { font-size: 18px; font-weight: 800; }
+    .month-btns { display: flex; gap: 6px; align-items: center; }
+    .nav-btn {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 12px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: background 0.12s;
+    }
+    .nav-btn:hover { background: var(--bg); }
+    .today-btn {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 10px; cursor: pointer; font-size: 11px; font-weight: 700;
+      color: var(--muted); transition: background 0.12s;
+    }
+    .today-btn:hover { background: var(--border); }
+
+    /* Legend */
+    .legend { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; min-height: 22px; }
+    .leg-pill {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 99px; padding: 2px 9px; font-size: 10px;
+      font-weight: 600; color: var(--muted); cursor: pointer;
+      transition: all 0.12s;
+    }
+    .leg-pill:hover { border-color: var(--text); color: var(--text); }
+    .leg-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Calendar grid */
+    .cal-grid {
+      background: var(--card); border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07); border: 1px solid var(--border);
+    }
+    .cal-wdays {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      background: #faf4ee; border-bottom: 1px solid var(--border);
+    }
+    .cal-wd {
+      text-align: center; padding: 8px 2px;
+      font-size: 10px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted);
+    }
+    .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); }
+
+    .day-cell {
+      min-height: 88px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 5px 5px 4px;
+      cursor: pointer;
+      transition: background 0.1s;
+      position: relative;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .day-cell:nth-child(7n) { border-right: none; }
+    .day-cell.other-month { opacity: 0.28; cursor: default; }
+    .day-cell:not(.other-month):hover { background: rgba(232,74,138,0.04); }
+    .day-cell.today { box-shadow: inset 0 0 0 2px #2d2416; }
+
+    .day-num {
+      font-size: 12px; font-weight: 700;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; border-radius: 50%;
+    }
+    .day-cell.today .day-num { background: #2d2416; color: white; }
+
+    /* Phase color bar (bottom strip) */
+    .day-phase-bars { display: flex; gap: 2px; margin-top: 3px; height: 3px; }
+    .phase-bar-seg { flex: 1; border-radius: 99px; min-width: 3px; }
+
+    /* Phase label on first day of phase */
+    .phase-label-chip {
+      font-size: 9px; font-weight: 700;
+      border-radius: 4px; padding: 1px 5px; margin-top: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: flex; align-items: center; gap: 2px;
+    }
+
+    /* Note chip */
+    .note-chip {
+      font-size: 9px; font-weight: 600;
+      border-radius: 4px; padding: 1px 5px; margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Milestone pin */
+    .milestone-pin {
+      position: absolute; top: 4px; right: 5px; font-size: 12px;
+    }
+
+    .day-events { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+
+    /* ── BOTTOM TAB BAR (mobile only) ── */
+    .tab-bar {
+      display: none;
+      height: var(--tab-h); background: var(--card);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0; z-index: 20;
+    }
+    .tab-btn {
+      flex: 1; background: none; border: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 3px; font-size: 11px; font-weight: 700;
+      color: var(--muted); transition: color 0.15s;
+    }
+    .tab-btn .tab-icon { font-size: 20px; }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn.active .tab-icon { transform: scale(1.1); }
+
+    /* ── OVERLAYS ── */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.38); z-index: 500;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(3px); padding: 16px;
+    }
+    .overlay.open { display: flex; }
+
+    .panel {
+      background: var(--card); border-radius: 20px; padding: 24px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+      animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(14px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .panel-title { font-size: 17px; font-weight: 800; margin-bottom: 18px; }
+
+    /* Day modal */
+    .m-date-lbl {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--muted); margin-bottom: 2px;
+    }
+    .m-heading { font-size: 20px; font-weight: 800; margin-bottom: 10px; }
+    .m-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+    .m-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 99px; }
+
+    /* Phase tasks in day modal */
+    .m-phase-tasks { margin-bottom: 14px; }
+    .m-pt-title {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px;
+      margin-top: 10px;
+    }
+    .m-task-row {
+      display: flex; align-items: flex-start; gap: 7px;
+      padding: 4px 0; border-bottom: 1px solid #f8f2ea;
+    }
+    .m-task-row:last-child { border-bottom: none; }
+    .m-task-row input[type="checkbox"] {
+      margin-top: 2px; width: 12px; height: 12px;
+      accent-color: var(--accent); cursor: pointer; flex-shrink: 0;
+    }
+    .m-task-row label {
+      font-size: 12px; cursor: pointer; line-height: 1.4; color: var(--text);
+    }
+    .m-task-row input:checked + label { text-decoration: line-through; color: var(--muted); }
+
+    /* Form fields */
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block; font-size: 10px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--muted); margin-bottom: 5px;
+    }
+    .field input, .field textarea {
+      width: 100%; padding: 9px 11px;
+      border: 1px solid var(--border); border-radius: 10px;
+      font-size: 13px; font-family: inherit;
+      color: var(--text); background: var(--bg); outline: none;
+      transition: border 0.15s;
+    }
+    .field input:focus, .field textarea:focus { border-color: var(--accent); }
+    .field textarea { resize: vertical; min-height: 70px; }
+
+    .milestone-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+    }
+    .milestone-row input[type="checkbox"] {
+      width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer;
+    }
+    .milestone-row label { font-size: 13px; cursor: pointer; }
+
+    .hint {
+      background: var(--bg); border-radius: 9px; padding: 10px 12px;
+      font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 12px;
+    }
+
+    .actions { display: flex; gap: 7px; justify-content: flex-end; margin-top: 4px; }
+    .btn {
+      padding: 8px 15px; border-radius: 9px; font-size: 13px; font-weight: 700;
+      cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s;
+      font-family: inherit;
+    }
+    .btn:hover { opacity: 0.86; }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary   { background: var(--accent); color: white; }
+    .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger    { background: #fff0f0; color: #c0392b; border: 1px solid #fcc; }
+    .btn-ghost     { background: none; color: var(--muted); font-size: 12px; border: none; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* ── RESPONSIVE: MOBILE ── */
+    @media (max-width: 767px) {
+      .tab-bar { display: flex; }
+      .h-date  { display: none; }
+
+      /* Sidebar: hidden until tasks tab active */
+      .sidebar {
+        position: absolute; inset: 0; z-index: 5;
+        width: 100%; border-right: none;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .sidebar.tab-active { transform: translateX(0); }
+
+      /* Calendar: shown by default */
+      .cal-area {
+        position: absolute; inset: 0;
+        transform: translateX(0);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .cal-area.tab-hidden { transform: translateX(100%); }
+
+      .day-cell { min-height: 70px; }
+      .prog-track { width: 70px; }
+      .phase-label-chip { display: none; } /* too small on mobile — show in modal instead */
+      .note-chip { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════ HEADER ════ -->
+<div class="header">
+  <div class="header-logo">🐾</div>
+  <input class="brand-input" id="brandInput" value="tomitomi" maxlength="20" title="Click to edit">
+  <div class="h-sep"></div>
+  <div class="h-progress">
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="prog-lbl" id="progLbl">0 / 31</div>
+  </div>
+  <div class="h-date" id="hDate">📅 No start date</div>
+  <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+</div>
+
+<!-- ════ MAIN ════ -->
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <div class="sb-title">Phases &amp; Tasks</div>
+      <div class="sb-pct" id="sbPct">0%</div>
+    </div>
+    <div class="sb-scroll" id="phaseList"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="cal-area" id="calArea">
+    <div class="cal-wrap">
+
+      <div class="start-prompt" id="startPrompt" onclick="openSettings()">
+        <h4>📅 Set your project start date</h4>
+        <p>Tap here → enter a start date → phases auto-map onto the calendar</p>
+      </div>
+
+      <div class="month-nav">
+        <button class="nav-btn" onclick="prevMonth()">←</button>
+        <h2 id="monthTitle"></h2>
+        <div class="month-btns">
+          <button class="today-btn" onclick="goToday()">Today</button>
+          <button class="nav-btn" onclick="nextMonth()">→</button>
+        </div>
+      </div>
+
+      <div class="legend" id="legend"></div>
+
+      <div class="cal-grid">
+        <div class="cal-wdays">
+          <div class="cal-wd">Sun</div>
+          <div class="cal-wd">Mon</div>
+          <div class="cal-wd">Tue</div>
+          <div class="cal-wd">Wed</div>
+          <div class="cal-wd">Thu</div>
+          <div class="cal-wd">Fri</div>
+          <div class="cal-wd">Sat</div>
+        </div>
+        <div class="cal-days" id="calDays"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════ BOTTOM TAB BAR ════ -->
+<div class="tab-bar">
+  <button class="tab-btn" id="tabTasks" onclick="switchTab('tasks')">
+    <span class="tab-icon">📋</span>Tasks
+  </button>
+  <button class="tab-btn active" id="tabCal" onclick="switchTab('cal')">
+    <span class="tab-icon">📅</span>Calendar
+  </button>
+</div>
+
+<!-- ════ SETTINGS OVERLAY ════ -->
+<div class="overlay" id="settingsOverlay" onclick="overlayClose('settingsOverlay',event)">
+  <div class="panel">
+    <div class="panel-title">⚙️ Settings</div>
+    <div class="field">
+      <label>Brand Name</label>
+      <input type="text" id="sBrand" maxlength="20">
+    </div>
+    <div class="field">
+      <label>Project Start Date</label>
+      <input type="date" id="sDate">
+    </div>
+    <div class="hint">
+      All 6 phases will be auto-mapped onto the calendar from your start date. Phase labels and coloured highlights appear on each phase's first day.
+    </div>
+    <div class="actions">
+      <button class="btn btn-danger" onclick="resetAll()">Reset</button>
+      <button class="btn btn-secondary" onclick="overlayClose('settingsOverlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ DAY MODAL ════ -->
+<div class="overlay" id="dayOverlay" onclick="overlayClose('dayOverlay',event)">
+  <div class="panel">
+    <div class="m-date-lbl" id="mLbl"></div>
+    <div class="m-heading" id="mHead"></div>
+    <div class="m-tags" id="mTags"></div>
+
+    <!-- Active phase tasks shown here -->
+    <div class="m-phase-tasks" id="mTasks"></div>
+
+    <div class="field">
+      <label>Day Note</label>
+      <textarea id="mNote" placeholder="Add a note or reminder for this day…" rows="2"></textarea>
+    </div>
+    <div class="milestone-row">
+      <input type="checkbox" id="mPin">
+      <label for="mPin">📌 Mark as milestone</label>
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="clearDay()">Clear</button>
+      <button class="btn btn-secondary" onclick="overlayClose('dayOverlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDay()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+//  DEFAULT PHASE DATA
+// ════════════════════════════════════════
+const DEFAULT_PHASES = [
+  {
+    id: 1, emoji: '🎨', name: 'Brand Identity',
+    color: '#f4845f', light: '#fde8df',
+    weekStart: 1, weekEnd: 2,
+    tasks: [
+      { id: 'p1t0', text: 'Define brand personality & target audience' },
+      { id: 'p1t1', text: 'Design logo (primary + secondary versions)' },
+      { id: 'p1t2', text: 'Lock in brand colour palette (3–5 colours)' },
+      { id: 'p1t3', text: 'Choose 2 brand fonts (heading + body)' },
+      { id: 'p1t4', text: 'Create a 1-page brand style guide' },
+    ]
+  },
+  {
+    id: 2, emoji: '🧸', name: 'Product Finalisation',
+    color: '#f5a623', light: '#fef3cd',
+    weekStart: 2, weekEnd: 3,
+    tasks: [
+      { id: 'p2t0', text: 'Finish final plushie design ← in progress!' },
+      { id: 'p2t1', text: 'Name all products in the collection' },
+      { id: 'p2t2', text: 'Create product mockups / flat-lay photos' },
+      { id: 'p2t3', text: 'Design packaging & hang tags' },
+      { id: 'p2t4', text: 'Define customisation workflow' },
+    ]
+  },
+  {
+    id: 3, emoji: '🏭', name: 'Production & Sourcing',
+    color: '#50b86c', light: '#e6f4ea',
+    weekStart: 3, weekEnd: 5,
+    tasks: [
+      { id: 'p3t0', text: 'Research print-on-demand for tote bags' },
+      { id: 'p3t1', text: 'Research plushie manufacturers' },
+      { id: 'p3t2', text: 'Order product samples' },
+      { id: 'p3t3', text: 'Set final pricing (cost + margin + fees)' },
+    ]
+  },
+  {
+    id: 4, emoji: '📱', name: 'Digital Presence Setup',
+    color: '#4a9edd', light: '#ddeeff',
+    weekStart: 4, weekEnd: 6,
+    tasks: [
+      { id: 'p4t0', text: 'Secure consistent usernames across platforms' },
+      { id: 'p4t1', text: 'Set up Instagram & TikTok profiles' },
+      { id: 'p4t2', text: 'Set up Etsy & Carousell shops' },
+      { id: 'p4t3', text: 'Create link-in-bio page (Linktree etc.)' },
+      { id: 'p4t4', text: 'Write brand story & About section' },
+    ]
+  },
+  {
+    id: 5, emoji: '📣', name: 'Pre-Launch Hype',
+    color: '#a27be8', light: '#ede6fa',
+    weekStart: 6, weekEnd: 8,
+    tasks: [
+      { id: 'p5t0', text: 'Create content calendar (2–3 posts/week)' },
+      { id: 'p5t1', text: 'Batch-create 6–8 pieces of content' },
+      { id: 'p5t2', text: 'Post teaser content with launch countdown' },
+      { id: 'p5t3', text: 'Apply to pop-up markets & bazaars' },
+      { id: 'p5t4', text: 'Reach out to 3–5 pet micro-influencers' },
+      { id: 'p5t5', text: 'Prepare a launch-day promo or offer' },
+    ]
+  },
+  {
+    id: 6, emoji: '🚀', name: 'Launch Week',
+    color: '#e84a8a', light: '#fce3f0',
+    weekStart: 8, weekEnd: 10,
+    tasks: [
+      { id: 'p6t0', text: 'Publish all Etsy & Carousell listings' },
+      { id: 'p6t1', text: 'Post launch announcement on all socials' },
+      { id: 'p6t2', text: 'Share in pet communities & Facebook groups' },
+      { id: 'p6t3', text: 'Respond to every DM within 24 hours' },
+      { id: 'p6t4', text: 'Document first orders (film packing/unboxing)' },
+      { id: 'p6t5', text: 'Post-launch: review & plan next collection' },
+    ]
+  }
+];
+
+// ════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════
+let S = {
+  brandName:      'tomitomi',
+  startDate:      null,         // 'YYYY-MM-DD'
+  phases:         null,         // deep copy of DEFAULT_PHASES (editable)
+  completedTasks: {},           // taskId: boolean
+  dayNotes:       {},           // 'YYYY-MM-DD': { note, milestone }
+  openPhases:     { 1: true },
+};
+
+let viewY, viewM, activeDateKey;
+let editingTask = null; // { phaseId, taskId, isNew }
+
+const MONTHS = ['January','February','March','April','May','June',
+                'July','August','September','October','November','December'];
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+// ════════════════════════════════════════
+//  STORAGE
+// ════════════════════════════════════════
+function save() {
+  try { localStorage.setItem('tomitomi_v1', JSON.stringify(S)); } catch(e) {}
+}
+function load() {
+  try {
+    const r = localStorage.getItem('tomitomi_v1');
+    if (r) S = Object.assign(S, JSON.parse(r));
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════
+function toISO(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function fromISO(s) {
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function uid() {
+  return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+}
+function getPhases() {
+  return S.phases || DEFAULT_PHASES;
+}
+
+function phaseRange(phase) {
+  if (!S.startDate) return null;
+  const base = fromISO(S.startDate);
+  const s = new Date(base); s.setDate(base.getDate() + (phase.weekStart - 1) * 7);
+  const e = new Date(base); e.setDate(base.getDate() + phase.weekEnd * 7 - 1);
+  return { s, e };
+}
+
+function phasesOnDate(iso) {
+  const d = fromISO(iso);
+  return getPhases().filter(p => {
+    const r = phaseRange(p);
+    return r && d >= r.s && d <= r.e;
+  });
+}
+
+// First visible day of a phase in the current view month
+function phaseFirstVisible(phase) {
+  const r = phaseRange(phase);
+  if (!r) return null;
+  const monthStart = new Date(viewY, viewM, 1);
+  const monthEnd   = new Date(viewY, viewM + 1, 0);
+  if (r.e < monthStart || r.s > monthEnd) return null;
+  return r.s >= monthStart ? r.s : monthStart;
+}
+
+function totalTasks() { return getPhases().reduce((a, p) => a + p.tasks.length, 0); }
+function doneTasks()  { return Object.values(S.completedTasks).filter(Boolean).length; }
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+function init() {
+  load();
+  if (!S.phases) S.phases = JSON.parse(JSON.stringify(DEFAULT_PHASES));
+  const now = new Date();
+  viewY = now.getFullYear(); viewM = now.getMonth();
+
+  const bi = document.getElementById('brandInput');
+  bi.value = S.brandName;
+  bi.addEventListener('input', e => { S.brandName = e.target.value; save(); });
+
+  renderSidebar();
+  renderProgress();
+  renderCalendar();
+  updateHeaderDate();
+}
+
+// ════════════════════════════════════════
+//  TAB SWITCHING (mobile)
+// ════════════════════════════════════════
+function switchTab(tab) {
+  const sidebar = document.getElementById('sidebar');
+  const calArea = document.getElementById('calArea');
+  const tTasks  = document.getElementById('tabTasks');
+  const tCal    = document.getElementById('tabCal');
+
+  if (tab === 'tasks') {
+    sidebar.classList.add('tab-active');
+    calArea.classList.add('tab-hidden');
+    tTasks.classList.add('active');
+    tCal.classList.remove('active');
+  } else {
+    sidebar.classList.remove('tab-active');
+    calArea.classList.remove('tab-hidden');
+    tCal.classList.add('active');
+    tTasks.classList.remove('active');
+  }
+}
+
+// ════════════════════════════════════════
+//  SIDEBAR
+// ════════════════════════════════════════
+function renderSidebar() {
+  const el = document.getElementById('phaseList');
+  el.innerHTML = getPhases().map(phase => renderPhaseCard(phase)).join('');
+}
+
+function renderPhaseCard(phase) {
+  const done  = phase.tasks.filter(t => S.completedTasks[t.id]).length;
+  const total = phase.tasks.length;
+  const pct   = total ? (done / total) * 100 : 0;
+  const allDone = done === total && total > 0;
+  const isOpen  = S.openPhases[phase.id];
+
+  const tasksHtml = phase.tasks.map(t => renderTaskRow(phase.id, t)).join('');
+
+  const addRowHtml = `
+    <div class="add-task-row">
+      <button class="add-task-btn" onclick="addTask(${phase.id})">+ Add task</button>
+    </div>`;
+
+  return `
+  <div class="phase-card" id="pc${phase.id}" style="${allDone ? 'background:linear-gradient(90deg,#f8fef9,#fffef5)' : ''}">
+    <button class="phase-header" onclick="togglePhase(${phase.id})">
+      <span class="ph-emoji">${phase.emoji}</span>
+      <div class="ph-info">
+        <div class="ph-name">${escHtml(phase.name)}</div>
+        <div class="ph-sub" id="phsub${phase.id}">Wk ${phase.weekStart}–${phase.weekEnd} · ${done}/${total}</div>
+      </div>
+      ${allDone
+        ? `<span class="ph-done-tag">✓ Done</span>`
+        : `<div class="ph-bar-wrap"><div class="ph-bar-fill" id="phbar${phase.id}" style="width:${pct}%;background:${phase.color}"></div></div>`
+      }
+      <span class="ph-chevron ${isOpen ? 'open' : ''}" id="phchev${phase.id}">▼</span>
+    </button>
+    <div class="task-list ${isOpen ? 'open' : ''}" id="tl${phase.id}">
+      <div class="ph-wk-edit" id="wkedit${phase.id}" style="display:none;">
+        Wk <input class="wk-input" id="wks${phase.id}" type="number" min="1" max="20" value="${phase.weekStart}">
+        – <input class="wk-input" id="wke${phase.id}" type="number" min="1" max="20" value="${phase.weekEnd}">
+        <button class="wk-save-btn" onclick="saveWeeks(${phase.id})">OK</button>
+      </div>
+      <div id="tasks-inner-${phase.id}">
+        ${tasksHtml}
+      </div>
+      ${addRowHtml}
+    </div>
+  </div>`;
+}
+
+function renderTaskRow(phaseId, task) {
+  const checked = S.completedTasks[task.id] || false;
+  const isEditing = editingTask && editingTask.phaseId === phaseId && editingTask.taskId === task.id;
+
+  if (isEditing) {
+    return `
+    <div class="task-row editing" id="tr${task.id}">
+      <input class="t-cb" type="checkbox" disabled>
+      <input class="t-edit-input" id="ei${task.id}"
+        value="${escHtml(task.text)}"
+        onkeydown="editKeydown(event, ${phaseId}, '${task.id}')"
+        placeholder="Task name…">
+      <div class="t-edit-btns">
+        <button class="t-confirm-btn ok"     onclick="saveEdit(${phaseId},'${task.id}')">✓</button>
+        <button class="t-confirm-btn cancel" onclick="cancelEdit(${phaseId},'${task.id}')">✕</button>
+      </div>
+    </div>`;
+  }
+
+  return `
+  <div class="task-row" id="tr${task.id}">
+    <input class="t-cb" type="checkbox" id="cb${task.id}"
+      ${checked ? 'checked' : ''}
+      onchange="toggleTask('${task.id}', ${phaseId})">
+    <label class="t-text ${checked ? 'done' : ''}" for="cb${task.id}">${escHtml(task.text)}</label>
+    <div class="t-actions">
+      <button class="t-btn" onclick="startEdit(${phaseId},'${task.id}')" title="Edit">✏️</button>
+      <button class="t-btn del" onclick="deleteTask(${phaseId},'${task.id}')" title="Delete">×</button>
+    </div>
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Task CRUD ──
+function startEdit(phaseId, taskId) {
+  editingTask = { phaseId, taskId, isNew: false };
+  rerenderPhase(phaseId);
+  setTimeout(() => {
+    const inp = document.getElementById('ei' + taskId);
+    if (inp) { inp.focus(); inp.select(); }
+  }, 30);
+}
+
+function saveEdit(phaseId, taskId) {
+  const inp = document.getElementById('ei' + taskId);
+  const text = inp ? inp.value.trim() : '';
+  if (text) {
+    const phase = getPhases().find(p => p.id === phaseId);
+    if (phase) {
+      const task = phase.tasks.find(t => t.id === taskId);
+      if (task) task.text = text;
+    }
+  } else {
+    // empty = delete if new
+    if (editingTask && editingTask.isNew) {
+      const phase = getPhases().find(p => p.id === phaseId);
+      if (phase) phase.tasks = phase.tasks.filter(t => t.id !== taskId);
+    }
+  }
+  editingTask = null;
+  save();
+  rerenderPhase(phaseId);
+  renderProgress();
+  renderCalendar();
+}
+
+function cancelEdit(phaseId, taskId) {
+  if (editingTask && editingTask.isNew) {
+    const phase = getPhases().find(p => p.id === phaseId);
+    if (phase) phase.tasks = phase.tasks.filter(t => t.id !== taskId);
+    save();
+  }
+  editingTask = null;
+  rerenderPhase(phaseId);
+}
+
+function editKeydown(e, phaseId, taskId) {
+  if (e.key === 'Enter')  { e.preventDefault(); saveEdit(phaseId, taskId); }
+  if (e.key === 'Escape') { cancelEdit(phaseId, taskId); }
+}
+
+function addTask(phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  if (!phase) return;
+  const newId = uid();
+  phase.tasks.push({ id: newId, text: '' });
+  editingTask = { phaseId, taskId: newId, isNew: true };
+  // Ensure phase open
+  S.openPhases[phaseId] = true;
+  rerenderPhase(phaseId);
+  setTimeout(() => {
+    const inp = document.getElementById('ei' + newId);
+    if (inp) inp.focus();
+  }, 30);
+}
+
+function deleteTask(phaseId, taskId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  if (!phase) return;
+  phase.tasks = phase.tasks.filter(t => t.id !== taskId);
+  delete S.completedTasks[taskId];
+  save();
+  rerenderPhase(phaseId);
+  renderProgress();
+}
+
+function toggleTask(taskId, phaseId) {
+  S.completedTasks[taskId] = !S.completedTasks[taskId];
+  save();
+  renderProgress();
+  // Update sidebar label
+  const lbl = document.querySelector(`#tr${taskId} .t-text`);
+  if (lbl) lbl.classList.toggle('done', !!S.completedTasks[taskId]);
+  // Update phase sub info
+  const phase = getPhases().find(p => p.id === phaseId);
+  if (phase) {
+    const done  = phase.tasks.filter(t => S.completedTasks[t.id]).length;
+    const total = phase.tasks.length;
+    const sub = document.getElementById('phsub' + phaseId);
+    if (sub) sub.textContent = `Wk ${phase.weekStart}–${phase.weekEnd} · ${done}/${total}`;
+    const bar = document.getElementById('phbar' + phaseId);
+    if (bar) bar.style.width = (total ? (done/total)*100 : 0) + '%';
+  }
+}
+
+function saveWeeks(phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  if (!phase) return;
+  const ws = parseInt(document.getElementById('wks' + phaseId).value);
+  const we = parseInt(document.getElementById('wke' + phaseId).value);
+  if (!isNaN(ws) && !isNaN(we) && ws >= 1 && we > ws) {
+    phase.weekStart = ws;
+    phase.weekEnd   = we;
+    save();
+    document.getElementById(`wkedit${phaseId}`).style.display = 'none';
+    const sub = document.getElementById('phsub' + phaseId);
+    if (sub) {
+      const done  = phase.tasks.filter(t => S.completedTasks[t.id]).length;
+      const total = phase.tasks.length;
+      sub.textContent = `Wk ${ws}–${we} · ${done}/${total}`;
+    }
+    renderCalendar();
+  }
+}
+
+function togglePhase(id) {
+  S.openPhases[id] = !S.openPhases[id];
+  save();
+  const tl   = document.getElementById('tl' + id);
+  const chev = document.getElementById('phchev' + id);
+  if (tl)   tl.classList.toggle('open', !!S.openPhases[id]);
+  if (chev) chev.classList.toggle('open', !!S.openPhases[id]);
+}
+
+// Re-render just one phase card's inner tasks (avoid full sidebar rebuild)
+function rerenderPhase(phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  if (!phase) return;
+  const inner = document.getElementById('tasks-inner-' + phaseId);
+  if (inner) inner.innerHTML = phase.tasks.map(t => renderTaskRow(phaseId, t)).join('');
+}
+
+function renderProgress() {
+  const done = doneTasks(), total = totalTasks();
+  const pct  = total ? (done / total) * 100 : 0;
+  document.getElementById('progFill').style.width  = pct + '%';
+  document.getElementById('progLbl').textContent   = `${done} / ${total}`;
+  document.getElementById('sbPct').textContent      = Math.round(pct) + '%';
+}
+
+// ════════════════════════════════════════
+//  CALENDAR
+// ════════════════════════════════════════
+function renderCalendar() {
+  document.getElementById('monthTitle').textContent = `${MONTHS[viewM]} ${viewY}`;
+  renderLegend();
+
+  const today = new Date();
+  const fd = new Date(viewY, viewM, 1);
+  const ld = new Date(viewY, viewM + 1, 0);
+  const off = fd.getDay();
+  const prevLast = new Date(viewY, viewM, 0).getDate();
+
+  // Calculate first-visible-day for each phase label
+  const phaseFirstDays = {}; // ISO string -> [phase, ...]
+  getPhases().forEach(phase => {
+    const fv = phaseFirstVisible(phase);
+    if (!fv) return;
+    const iso = toISO(fv.getFullYear(), fv.getMonth(), fv.getDate());
+    if (!phaseFirstDays[iso]) phaseFirstDays[iso] = [];
+    phaseFirstDays[iso].push(phase);
+  });
+
+  const container = document.getElementById('calDays');
+  container.innerHTML = '';
+
+  // Prev filler
+  for (let i = off - 1; i >= 0; i--) {
+    container.appendChild(buildCell(viewY, viewM - 1, prevLast - i, true, false, phaseFirstDays));
+  }
+  // Current month
+  for (let d = 1; d <= ld.getDate(); d++) {
+    const isToday = today.getFullYear() === viewY && today.getMonth() === viewM && today.getDate() === d;
+    container.appendChild(buildCell(viewY, viewM, d, false, isToday, phaseFirstDays));
+  }
+  // Next filler
+  const filled = container.children.length;
+  const trail  = filled % 7 === 0 ? 0 : 7 - (filled % 7);
+  for (let d = 1; d <= trail; d++) {
+    container.appendChild(buildCell(viewY, viewM + 1, d, true, false, phaseFirstDays));
+  }
+}
+
+function buildCell(yr, mo, dy, other, isToday, phaseFirstDays) {
+  let ay = yr, am = mo;
+  if (am < 0)  { am = 11; ay--; }
+  if (am > 11) { am = 0;  ay++; }
+
+  const iso    = toISO(ay, am, dy);
+  const phases = other ? [] : phasesOnDate(iso);
+  const data   = S.dayNotes[iso];
+  const labels = (!other && phaseFirstDays[iso]) ? phaseFirstDays[iso] : [];
+
+  const cell = document.createElement('div');
+  let cls = 'day-cell';
+  if (other)   cls += ' other-month';
+  if (isToday) cls += ' today';
+  cell.className = cls;
+
+  // Phase background
+  if (phases.length && !other) {
+    cell.style.background = phases[0].light + 'bb';
+  }
+
+  // Day number
+  const num = document.createElement('div');
+  num.className = 'day-num';
+  num.textContent = dy;
+  cell.appendChild(num);
+
+  // Milestone pin
+  if (data?.milestone && !other) {
+    const pin = document.createElement('div');
+    pin.className = 'milestone-pin';
+    pin.textContent = '📌';
+    cell.appendChild(pin);
+  }
+
+  // Phase start labels (emoji + name)
+  labels.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'phase-label-chip';
+    chip.style.background = p.light;
+    chip.style.color = p.color;
+    chip.innerHTML = `<span>${p.emoji}</span><span>${p.name}</span>`;
+    cell.appendChild(chip);
+  });
+
+  // Phase bars at bottom
+  if (phases.length) {
+    const bars = document.createElement('div');
+    bars.className = 'day-phase-bars';
+    phases.forEach(p => {
+      const seg = document.createElement('div');
+      seg.className = 'phase-bar-seg';
+      seg.style.background = p.color;
+      seg.title = p.name;
+      bars.appendChild(seg);
+    });
+    cell.appendChild(bars);
+  }
+
+  // Note chip
+  if (!other && data?.note) {
+    const nc = document.createElement('div');
+    nc.className = 'note-chip';
+    nc.style.background = phases.length ? phases[0].light : '#f5f0ea';
+    nc.style.color       = phases.length ? phases[0].color : '#7a6651';
+    nc.textContent = data.note;
+    cell.appendChild(nc);
+  }
+
+  if (!other) {
+    cell.addEventListener('click', () => openDayModal(iso));
+  }
+  return cell;
+}
+
+function renderLegend() {
+  const el = document.getElementById('legend');
+  if (!S.startDate) { el.innerHTML = ''; return; }
+  el.innerHTML = getPhases().map(p =>
+    `<div class="leg-pill" onclick="jumpToPhase(${p.id})" title="Go to phase start">
+       <div class="leg-dot" style="background:${p.color}"></div>
+       ${p.emoji} ${p.name}
+     </div>`
+  ).join('');
+}
+
+function jumpToPhase(phaseId) {
+  const phase = getPhases().find(p => p.id === phaseId);
+  const r = phaseRange(phase);
+  if (!r) return;
+  viewY = r.s.getFullYear();
+  viewM = r.s.getMonth();
+  renderCalendar();
+  // On mobile, switch to calendar tab
+  switchTab('cal');
+}
+
+function prevMonth() { viewM--; if (viewM < 0)  { viewM = 11; viewY--; } renderCalendar(); }
+function nextMonth() { viewM++; if (viewM > 11) { viewM = 0;  viewY++; } renderCalendar(); }
+function goToday()   { const n = new Date(); viewY = n.getFullYear(); viewM = n.getMonth(); renderCalendar(); }
+
+// ════════════════════════════════════════
+//  DAY MODAL
+// ════════════════════════════════════════
+function openDayModal(iso) {
+  activeDateKey = iso;
+  const d      = fromISO(iso);
+  const phases = phasesOnDate(iso);
+
+  document.getElementById('mLbl').textContent =
+    `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  document.getElementById('mHead').textContent =
+    `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+
+  // Phase tags
+  const tagsEl = document.getElementById('mTags');
+  tagsEl.innerHTML = phases.length
+    ? phases.map(p =>
+        `<span class="m-tag" style="background:${p.light};color:${p.color}">${p.emoji} ${p.name}</span>`
+      ).join('')
+    : `<span style="font-size:11px;color:var(--muted)">No active phase</span>`;
+
+  // Phase tasks
+  const mTasksEl = document.getElementById('mTasks');
+  if (phases.length) {
+    mTasksEl.innerHTML = phases.map(p => {
+      const taskRows = p.tasks.map(t => {
+        const checked = S.completedTasks[t.id] || false;
+        return `<div class="m-task-row">
+          <input type="checkbox" id="mct${t.id}" ${checked ? 'checked' : ''}
+            onchange="toggleTask('${t.id}', ${p.id})">
+          <label for="mct${t.id}">${escHtml(t.text)}</label>
+        </div>`;
+      }).join('');
+      return `<div class="m-pt-title">${p.emoji} ${p.name} tasks</div>${taskRows}`;
+    }).join('');
+  } else {
+    mTasksEl.innerHTML = '';
+  }
+
+  const data = S.dayNotes[iso] || {};
+  document.getElementById('mNote').value        = data.note      || '';
+  document.getElementById('mPin').checked        = data.milestone || false;
+
+  openOverlay('dayOverlay');
+  setTimeout(() => document.getElementById('mNote').focus(), 50);
+}
+
+function saveDay() {
+  const note      = document.getElementById('mNote').value.trim();
+  const milestone = document.getElementById('mPin').checked;
+  if (note || milestone) {
+    S.dayNotes[activeDateKey] = { note, milestone };
+  } else {
+    delete S.dayNotes[activeDateKey];
+  }
+  save();
+  closeOverlay('dayOverlay');
+  renderCalendar();
+}
+
+function clearDay() {
+  delete S.dayNotes[activeDateKey];
+  save();
+  closeOverlay('dayOverlay');
+  renderCalendar();
+}
+
+// ════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════
+function openSettings() {
+  document.getElementById('sBrand').value = S.brandName;
+  document.getElementById('sDate').value  = S.startDate || '';
+  openOverlay('settingsOverlay');
+}
+
+function saveSettings() {
+  const brand = document.getElementById('sBrand').value.trim();
+  const date  = document.getElementById('sDate').value;
+  if (brand) { S.brandName = brand; document.getElementById('brandInput').value = brand; }
+  if (date)  {
+    S.startDate = date;
+    const d = fromISO(date); viewY = d.getFullYear(); viewM = d.getMonth();
+  }
+  save();
+  updateHeaderDate();
+  closeOverlay('settingsOverlay');
+  renderCalendar();
+}
+
+function updateHeaderDate() {
+  const el = document.getElementById('hDate');
+  const sp = document.getElementById('startPrompt');
+  if (S.startDate) {
+    const d = fromISO(S.startDate);
+    el.textContent = `📅 ${d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}`;
+    if (sp) sp.style.display = 'none';
+  } else {
+    el.textContent = '📅 No start date';
+    if (sp) sp.style.display = 'block';
+  }
+}
+
+function resetAll() {
+  if (!confirm('Reset ALL data? Tasks, notes, and settings will be cleared.')) return;
+  localStorage.removeItem('tomitomi_v1');
+  S = {
+    brandName: 'tomitomi', startDate: null,
+    phases: JSON.parse(JSON.stringify(DEFAULT_PHASES)),
+    completedTasks: {}, dayNotes: {}, openPhases: { 1: true }
+  };
+  document.getElementById('brandInput').value = 'tomitomi';
+  closeOverlay('settingsOverlay');
+  updateHeaderDate();
+  renderSidebar();
+  renderProgress();
+  renderCalendar();
+}
+
+// ════════════════════════════════════════
+//  OVERLAY HELPERS
+// ════════════════════════════════════════
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+function overlayClose(id, e) {
+  if (!e || e.target.id === id) closeOverlay(id);
+}
+
+// ════════════════════════════════════════
+//  LAUNCH
+// ════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
