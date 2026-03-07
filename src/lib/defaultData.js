@@ -1,0 +1,75 @@
+export const DEFAULT_PHASES = [
+  {
+    id: 1, emoji: '🎨', name: 'Brand Identity',
+    color: '#f4845f', light: '#fde8df',
+    weekStart: 1, weekEnd: 2,
+    tasks: [
+      { id: 'p1t0', text: 'Define brand personality & target audience' },
+      { id: 'p1t1', text: 'Design logo (primary + secondary versions)' },
+      { id: 'p1t2', text: 'Lock in brand colour palette (3–5 colours)' },
+      { id: 'p1t3', text: 'Choose 2 brand fonts (heading + body)' },
+      { id: 'p1t4', text: 'Create a 1-page brand style guide' },
+    ],
+  },
+  {
+    id: 2, emoji: '🧸', name: 'Product Finalisation',
+    color: '#f5a623', light: '#fef3cd',
+    weekStart: 2, weekEnd: 3,
+    tasks: [
+      { id: 'p2t0', text: 'Finish final plushie design ← in progress!' },
+      { id: 'p2t1', text: 'Name all products in the collection' },
+      { id: 'p2t2', text: 'Create product mockups / flat-lay photos' },
+      { id: 'p2t3', text: 'Design packaging & hang tags' },
+      { id: 'p2t4', text: 'Define customisation workflow' },
+    ],
+  },
+  {
+    id: 3, emoji: '🏭', name: 'Production & Sourcing',
+    color: '#50b86c', light: '#e6f4ea',
+    weekStart: 3, weekEnd: 5,
+    tasks: [
+      { id: 'p3t0', text: 'Research print-on-demand for tote bags' },
+      { id: 'p3t1', text: 'Research plushie manufacturers' },
+      { id: 'p3t2', text: 'Order product samples' },
+      { id: 'p3t3', text: 'Set final pricing (cost + margin + fees)' },
+    ],
+  },
+  {
+    id: 4, emoji: '📱', name: 'Digital Presence Setup',
+    color: '#4a9edd', light: '#ddeeff',
+    weekStart: 4, weekEnd: 6,
+    tasks: [
+      { id: 'p4t0', text: 'Secure consistent usernames across platforms' },
+      { id: 'p4t1', text: 'Set up Instagram & TikTok profiles' },
+      { id: 'p4t2', text: 'Set up Etsy & Carousell shops' },
+      { id: 'p4t3', text: 'Create link-in-bio page (Linktree etc.)' },
+      { id: 'p4t4', text: 'Write brand story & About section' },
+    ],
+  },
+  {
+    id: 5, emoji: '📣', name: 'Pre-Launch Hype',
+    color: '#a27be8', light: '#ede6fa',
+    weekStart: 6, weekEnd: 8,
+    tasks: [
+      { id: 'p5t0', text: 'Create content calendar (2–3 posts/week)' },
+      { id: 'p5t1', text: 'Batch-create 6–8 pieces of content' },
+      { id: 'p5t2', text: 'Post teaser content with launch countdown' },
+      { id: 'p5t3', text: 'Apply to pop-up markets & bazaars' },
+      { id: 'p5t4', text: 'Reach out to 3–5 pet micro-influencers' },
+      { id: 'p5t5', text: 'Prepare a launch-day promo or offer' },
+    ],
+  },
+  {
+    id: 6, emoji: '🚀', name: 'Launch Week',
+    color: '#e84a8a', light: '#fce3f0',
+    weekStart: 8, weekEnd: 10,
+    tasks: [
+      { id: 'p6t0', text: 'Publish all Etsy & Carousell listings' },
+      { id: 'p6t1', text: 'Post launch announcement on all socials' },
+      { id: 'p6t2', text: 'Share in pet communities & Facebook groups' },
+      { id: 'p6t3', text: 'Respond to every DM within 24 hours' },
+      { id: 'p6t4', text: 'Document first orders (film packing/unboxing)' },
+      { id: 'p6t5', text: 'Post-launch: review & plan next collection' },
+    ],
+  },
+]

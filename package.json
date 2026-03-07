@@ -2,6 +2,7 @@
   "name": "tomitomi-planner",
   "version": "1.0.0",
   "description": "🐾 tomitomi pet customization business launch planner",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -9,5 +10,12 @@
   },
   "devDependencies": {
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "firebase": "^12.10.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }
