@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 import { DEFAULT_PHASES } from '../lib/defaultData'
+import { phaseRange } from '../lib/utils'
 
 const STORAGE_KEY = 'tomitomi_v1'
 const WS_KEY      = 'tomitomi_wsId'
@@ -58,9 +59,13 @@ export function AppProvider({ children }) {
   const phases = (appState.phases || DEFAULT_PHASES)
     .slice() // don't mutate stored array
     .sort((a, b) => {
-      if (a.useDates && b.useDates)  return (a.dateStart || '').localeCompare(b.dateStart || '')
-      if (!a.useDates && !b.useDates) return (a.weekStart || 0) - (b.weekStart || 0)
-      return a.useDates ? 1 : -1 // week-based phases before date-based
+      const startDate = appState.startDate
+      const ra = phaseRange(a, startDate)
+      const rb = phaseRange(b, startDate)
+      if (ra && rb) return ra.s - rb.s                       // both resolve → compare by actual start date
+      if (ra) return -1                                       // only a resolves → a first
+      if (rb) return 1                                        // only b resolves → b first
+      return (a.weekStart || 0) - (b.weekStart || 0)         // neither resolves (no startDate) → by weekStart
     })
 
   // ── Persist + debounced Firestore write ──────────────────────────────
