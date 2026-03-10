@@ -245,32 +245,36 @@ export default function TaskItem({
           checked={checked}
           onChange={toggleTask}
         />
-        <label className={`t-text${checked ? ' done' : ''}`} htmlFor={`cb${task.id}`}>
-          {task.text}
-        </label>
+        {/* Cell: title + badges — stacks vertically on mobile so title never wraps */}
+        <div className="t-cell">
+          <label className={`t-text${checked ? ' done' : ''}`} htmlFor={`cb${task.id}`}>
+            {task.text}
+          </label>
 
-        {/* Deadline badge */}
-        {hasDl && (
-          <span
-            className={`t-dl-badge${badgeClass ? ' ' + badgeClass : ''}`}
-            onClick={openDeadlinePicker}
-            title="Edit deadline"
-          >
-            {fmtDeadlineBadge(task)}
-          </span>
-        )}
-
-        {/* Time badge — click to toggle log (only visible when time is tracked) */}
-        {hasTime && (
-          <span
-            className={`t-time-badge${isTimerRunning ? ' running' : ''}`}
-            onClick={toggleLog}
-            title="View time log"
-          >
-            <Clock size={11} />
-            {isTimerRunning && !totalMin ? '● Running' : fmtDuration(totalMin)}
-          </span>
-        )}
+          {(hasDl || hasTime) && (
+            <div className="t-badges">
+              {hasDl && (
+                <span
+                  className={`t-dl-badge${badgeClass ? ' ' + badgeClass : ''}`}
+                  onClick={openDeadlinePicker}
+                  title="Edit deadline"
+                >
+                  {fmtDeadlineBadge(task)}
+                </span>
+              )}
+              {hasTime && (
+                <span
+                  className={`t-time-badge${isTimerRunning ? ' running' : ''}`}
+                  onClick={toggleLog}
+                  title="View time log"
+                >
+                  <Clock size={11} />
+                  {isTimerRunning && !totalMin ? '● Running' : fmtDuration(totalMin)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Desktop: action buttons */}
         <div className="t-actions">

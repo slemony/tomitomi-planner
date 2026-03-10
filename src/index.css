@@ -146,9 +146,15 @@ body {
   accent-color: var(--accent); margin-top: 1px;
 }
 .task-row .t-cb:disabled { opacity: 0.4; }
+/* Cell wraps title + badges; flex:1 fills the row between checkbox and action buttons */
+.t-cell {
+  flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0;
+}
+/* Badges grouped so they can be placed right of title on desktop, below on mobile */
+.t-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: wrap; }
 .task-row .t-text {
   flex: 1; font-size: 12px; line-height: 1.4; cursor: pointer;
-  color: var(--text);
+  color: var(--text); min-width: 0;
 }
 .task-row .t-text.done { text-decoration: line-through; color: var(--muted); }
 .task-row .t-actions {
@@ -927,6 +933,11 @@ body {
   .cal-phase-chip { display: none; }
   .cal-note-chip  { display: none; }
   .cal-today-btn  { padding: 4px 8px; font-size: 10px; }
+
+  /* ── Task cell: stack title above badges so title never wraps ── */
+  .t-cell { flex-direction: column; align-items: flex-start; gap: 2px; padding: 1px 0; }
+  .t-cell .t-text { flex: none; }
+  .t-badges { margin-top: 1px; }
 
   /* ── Task actions: hide 3-button cluster, show ⋯ button instead ── */
   .t-actions  { display: none !important; }
