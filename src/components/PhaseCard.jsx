@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/useApp'
-import { fmtDate, uid } from '../lib/utils'
+import { fmtDate, uid, getTaskLoggedMin, fmtDuration } from '../lib/utils'
 import { Check, ChevronDown, Pencil, X } from 'lucide-react'
 import TaskItem from './TaskItem'
 
@@ -9,11 +9,16 @@ export default function PhaseCard({ phase, onEdit }) {
   const [editingTaskId,     setEditingTaskId]     = useState(null) // { taskId, isNew } | null
   const [editingDeadlineId, setEditingDeadlineId] = useState(null) // taskId | null
 
-  const isOpen  = !!appState.openPhases[phase.id]
-  const done    = phase.tasks.filter(t => appState.completedTasks[t.id]).length
-  const total   = phase.tasks.length
-  const pct     = total ? (done / total) * 100 : 0
-  const allDone = done === total && total > 0
+  const isOpen   = !!appState.openPhases[phase.id]
+  const done     = phase.tasks.filter(t => appState.completedTasks[t.id]).length
+  const total    = phase.tasks.length
+  const pct      = total ? (done / total) * 100 : 0
+  const allDone  = done === total && total > 0
+
+  // Total logged time across all tasks in this phase (including live timer if running on one of them)
+  const phaseMin = phase.tasks.reduce(
+    (sum, t) => sum + getTaskLoggedMin(t, appState.activeTimer), 0
+  )
 
   const rangeLabel = (phase.useDates && phase.dateStart && phase.dateEnd)
     ? `${fmtDate(phase.dateStart)} – ${fmtDate(phase.dateEnd)}`
@@ -58,7 +63,10 @@ export default function PhaseCard({ phase, onEdit }) {
           <span className="ph-emoji">{phase.emoji}</span>
           <div className="ph-info">
             <div className="ph-name">{phase.name}</div>
-            <div className="ph-sub">{rangeLabel} · {done}/{total}</div>
+            <div className="ph-sub">
+              {rangeLabel} · {done}/{total}
+              {phaseMin > 0 && <> · <span style={{ color: '#15803d' }}>⏱ {fmtDuration(phaseMin)}</span></>}
+            </div>
           </div>
           {allDone
             ? <span className="ph-done-tag"><Check size={12} style={{ verticalAlign: 'middle', marginRight: 2 }} />Done</span>

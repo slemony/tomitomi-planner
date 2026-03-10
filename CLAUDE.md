@@ -53,18 +53,19 @@ tomitomi-planner/
 ├── src/
 │   ├── main.jsx                 # Entry point; wraps app in <AppProvider>
 │   ├── App.jsx                  # Root: auth guard, header, tab bar, views
-│   ├── index.css                # All styles (~885 lines, CSS variables + layout)
+│   ├── index.css                # All styles (~940 lines, CSS variables + layout)
 │   ├── components/
 │   │   ├── CalendarView.jsx     # Monthly grid with phase bars + day click
 │   │   ├── DayModal.jsx         # Day detail: notes, milestone, due tasks
 │   │   ├── DeadlinePicker.jsx   # Toggle between "N days" or calendar date
-│   │   ├── PhaseCard.jsx        # Collapsible phase card with progress bar
+│   │   ├── FocusModal.jsx       # Full-screen focus overlay: free timer + Pomodoro
+│   │   ├── PhaseCard.jsx        # Collapsible phase card with progress bar + time total
 │   │   ├── PhaseEditModal.jsx   # Add / edit phase overlay
 │   │   ├── SettingsModal.jsx    # Brand name, start date, workspace sharing
-│   │   ├── Sidebar.jsx          # Phase list + completion % + Add Phase
-│   │   └── TaskItem.jsx         # Task row: checkbox, edit, deadline, delete
+│   │   ├── Sidebar.jsx          # Phase list + completion % + grand total time
+│   │   └── TaskItem.jsx         # Task row: checkbox, time badge, focus, deadline, edit, delete
 │   ├── context/
-│   │   ├── AppContext.jsx       # Global state, auth, Firebase sync (279 lines)
+│   │   ├── AppContext.jsx       # Global state, auth, Firebase sync, timer + focus actions
 │   │   └── useApp.js            # useContext(AppContext) hook
 │   └── lib/
 │       ├── defaultData.js       # 6 pre-configured launch phases + tasks
@@ -95,7 +96,7 @@ const { appState, updateState, user, phases, syncStatus } = useApp();
 {
   brandName: string,       // Displayed in header
   startDate: string,       // ISO date "YYYY-MM-DD"
-  phases: Phase[],         // Sorted: week-based first, then date-based
+  phases: Phase[],         // Sorted chronologically by actual date range
   completedTasks: {        // { [taskId]: boolean }
     [taskId]: boolean
   },
@@ -104,9 +105,16 @@ const { appState, updateState, user, phases, syncStatus } = useApp();
   },
   openPhases: {            // { [phaseId]: boolean } — collapse state
     [phaseId]: boolean
+  },
+  activeTimer: null | {    // Currently running timer (persisted, survives reload)
+    taskId: string,
+    phaseId: string,
+    startedAt: number      // Date.now() timestamp
   }
 }
 ```
+
+`focusMode` (which task is shown in Focus Mode) is a **local `useState`** in `AppContext` — it is UI-only and not persisted to Firestore or localStorage.
 
 `updateState` accepts a partial object or updater function:
 ```jsx
@@ -141,7 +149,19 @@ updateState(prev => ({ ...prev, openPhases: { ...prev.openPhases, [id]: true } }
   id: string,           // uid()
   text: string,
   deadline: string | undefined,   // "YYYY-MM-DD" or undefined
-  duration: number | undefined    // Days from startDate (alternative to deadline)
+  duration: number | undefined,   // Days from startDate (alternative to deadline)
+  timeEntries: TimeEntry[]        // default: [] — grows as time is logged
+}
+```
+
+**TimeEntry:**
+```js
+{
+  id:      string,                      // uid()
+  date:    string,                      // "YYYY-MM-DD" — the day work happened
+  minutes: number,                      // total minutes logged
+  note:    string,                      // free-text (empty string if none)
+  source:  'timer' | 'manual' | 'pomodoro'
 }
 ```
 
@@ -168,10 +188,11 @@ App loads
 
 | Component | Responsibility |
 |---|---|
-| `App.jsx` | Auth guard, header (brand input, progress bar, sync dot), tab bar, routes between Sidebar and CalendarView |
-| `Sidebar.jsx` | Lists `<PhaseCard>` for each phase, overall completion %, Add Phase button |
-| `PhaseCard.jsx` | Collapsible card: emoji, name, timeframe, progress bar, task list via `<TaskItem>`, edit/delete controls |
-| `TaskItem.jsx` | Checkbox, text, deadline badge; desktop hover → 3 action buttons; mobile → ⋯ dropdown menu |
+| `App.jsx` | Auth guard, header (brand input, progress bar, sync dot), tab bar, routes between Sidebar and CalendarView; renders `<FocusModal>` when `focusMode` is set |
+| `Sidebar.jsx` | Lists `<PhaseCard>` for each phase, overall completion %, grand total logged time, Add Phase button |
+| `PhaseCard.jsx` | Collapsible card: emoji, name, timeframe, progress bar, per-phase total logged time, task list via `<TaskItem>`, edit/delete controls |
+| `TaskItem.jsx` | Checkbox, text, time badge (logged hours), deadline badge; desktop hover → 4 action buttons (▶ Focus, ⏰ Deadline, ✏ Edit, ✕ Delete); mobile → ⋯ dropdown with Focus & Timer + Log time; expandable time log panel + manual entry form |
+| `FocusModal.jsx` | Full-screen dark overlay: free timer (count up) or Pomodoro mode (25 min countdown, auto-logs sessions, short/long breaks); updates `document.title` during timer; Pause/Skip/Reset controls |
 | `DeadlinePicker.jsx` | Inline picker: toggle "Days" (duration) vs "Date" (calendar); auto-focuses on mount |
 | `CalendarView.jsx` | 6×7 grid; prev/next month nav; cells show phase bars, due task count, notes, milestone star; click → DayModal |
 | `DayModal.jsx` | Overlay for a day: active phase tags, due tasks with checkboxes, note textarea, milestone toggle, clear button |
@@ -184,19 +205,47 @@ App loads
 
 | Function | Signature | Description |
 |---|---|---|
-| `toISO` | `(date) => string` | Date → `"YYYY-MM-DD"` |
+| `toISO` | `(y, m, d) => string` | Year + 0-indexed month + day → `"YYYY-MM-DD"` |
 | `fromISO` | `(str) => Date` | `"YYYY-MM-DD"` → Date (local time, no UTC shift) |
 | `fmtDate` | `(str) => string` | `"YYYY-MM-DD"` → `"Mon D"` |
-| `fmtDeadlineBadge` | `(deadline, startDate) => string` | Returns human label for deadline badge |
-| `phaseRange` | `(phase, startDate) => { start, end }` | Resolves phase start/end as Date objects |
-| `phaseFirstVisible` | `(phases, startDate) => Phase \| null` | First phase starting on or after today |
-| `phasesOnDate` | `(phases, startDate, date) => Phase[]` | All phases active on a given date |
+| `fmtDeadlineBadge` | `(task) => string` | Returns human label for deadline badge |
+| `phaseRange` | `(phase, startDate) => { s, e } \| null` | Resolves phase start/end as Date objects |
+| `phaseFirstVisible` | `(phase, viewY, viewM, startDate) => Date \| null` | First visible day of phase in a given month |
+| `phasesOnDate` | `(iso, phases, startDate) => Phase[]` | All phases active on a given date |
 | `totalTasks` | `(phases) => number` | Total task count across all phases |
-| `doneTasks` | `(phases, completedTasks) => number` | Count of completed tasks |
-| `getDeadlineClass` | `(deadline, startDate) => string` | Returns CSS class: `overdue`, `soon`, or `''` |
-| `getTaskDeadlineDate` | `(task, startDate) => Date \| null` | Resolves task deadline to a Date |
-| `getTasksWithDeadlineOn` | `(phases, startDate, date) => Task[]` | Tasks due on a specific date |
+| `doneTasks` | `(completedTasks) => number` | Count of completed tasks |
+| `getDeadlineClass` | `(task) => string` | Returns CSS class: `overdue`, `soon`, or `''` |
+| `getTaskDeadlineDate` | `(task, phase, startDate) => Date \| null` | Resolves task deadline to a Date |
+| `getTasksWithDeadlineOn` | `(iso, phases, startDate) => {task, phase}[]` | Tasks due on a specific date |
+| `getTaskLoggedMin` | `(task, activeTimer) => number` | Total minutes logged for a task, including live running timer |
+| `fmtDuration` | `(totalMin) => string` | Minutes → `"1h 30m"`, `"45m"`, `"2h"`, or `""` |
 | `uid` | `() => string` | Generates `"t_{timestamp}_{random}"` IDs |
+
+---
+
+## AppContext Actions
+
+All actions are available via `useApp()`. Original actions (`updateState`, `signInWithGoogle`, `signOutUser`, `switchToOwnWorkspace`, `joinWorkspace`, `resetAll`) are unchanged. New additions:
+
+| Action | Signature | Description |
+|---|---|---|
+| `startTimer` | `(phaseId, taskId)` | Starts a new `activeTimer`; auto-saves any previously running timer (≥ 1 min) as a `'timer'` entry first |
+| `stopTimer` | `(note?)` | Saves elapsed time as a `'timer'` entry (if ≥ 1 min), clears `activeTimer` |
+| `addTimeEntry` | `(phaseId, taskId, entry)` | Appends a `TimeEntry` to a task (used for manual and pomodoro entries) |
+| `deleteTimeEntry` | `(phaseId, taskId, entryId)` | Removes a `TimeEntry` from a task |
+| `enterFocus` | `(phaseId, taskId)` | Sets local `focusMode` state → triggers `<FocusModal>` render in `App.jsx` |
+| `exitFocus` | `()` | Clears `focusMode` |
+
+`focusMode` (exposed from context): `null` or `{ phaseId, taskId }`.
+
+### Timer lifecycle in Focus Mode
+
+| Mode | On open | On complete session | On close |
+|------|---------|---------------------|----------|
+| Free timer | `startTimer` called | — | `stopTimer('')` saves elapsed time |
+| Pomodoro | `startTimer` called; on switch from free, `stopTimer` saves partial free time | `addTimeEntry` logs exactly 25 min per session | `exitFocus()` only — sessions already logged |
+| Switch free→pomo | `stopTimer('')` saves partial free time | | |
+| Switch pomo→free | `startTimer` restarts fresh | | `stopTimer('')` saves elapsed |
 
 ---
 

@@ -703,6 +703,154 @@ body {
 }
 .cal-milestone { position: absolute; top: 4px; right: 5px; display: flex; align-items: center; color: #f5a623; }
 
+/* ── TIME TRACKING ────────────────────────────────────────────────────── */
+
+/* Time badge on task row */
+.t-time-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; padding: 2px 7px;
+  border-radius: 99px; cursor: pointer;
+  background: #f0f0f0; color: var(--muted);
+  border: 1px solid var(--border);
+  white-space: nowrap; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.t-time-badge:hover { background: var(--border); }
+.t-time-badge.running {
+  background: #dcfce7; color: #15803d;
+  border-color: #86efac;
+  animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* Green left border when this task's timer is active */
+.task-row.timing { border-left: 3px solid #22c55e; padding-left: 5px; }
+
+/* Time log panel — expands below task row on badge click */
+.time-log-panel {
+  padding: 10px 12px;
+  background: #fafafa; border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.time-log-header {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 600; color: var(--text); margin-bottom: 8px;
+}
+.time-log-total { font-size: 11px; color: var(--muted); font-weight: 400; }
+.time-entry-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+}
+.time-entry-row:last-of-type { border-bottom: none; }
+.time-entry-date  { color: var(--muted); min-width: 56px; font-size: 11px; }
+.time-entry-dur   { font-weight: 600; min-width: 52px; }
+.time-entry-note  { flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.time-entry-del   { flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--muted); padding: 2px 4px; border-radius: 4px; }
+.time-entry-del:hover { color: #e84a8a; background: #fce4ef; }
+.time-log-add-btn {
+  margin-top: 8px; font-size: 11px; padding: 4px 10px;
+  border-radius: 6px; border: 1px dashed var(--border);
+  background: none; cursor: pointer; color: var(--muted);
+}
+.time-log-add-btn:hover { background: var(--border); color: var(--text); }
+.time-log-empty { color: var(--muted); font-style: italic; font-size: 11px; padding: 4px 0 8px; }
+
+/* Manual time entry form */
+.time-entry-form {
+  padding: 10px 12px;
+  background: #fafafa; border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.tef-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 12px;
+}
+.tef-row label { color: var(--muted); min-width: 56px; font-size: 11px; }
+.time-entry-form input[type="date"],
+.time-entry-form input[type="number"],
+.time-entry-form input[type="text"] {
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; background: #fff; color: var(--text);
+}
+.time-entry-form input[type="number"] { width: 52px; }
+.time-entry-form input[type="text"]   { flex: 1; }
+.tef-dur { display: flex; align-items: center; gap: 4px; }
+.tef-dur span { color: var(--muted); font-size: 11px; }
+.tef-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* ── FOCUS MODE ────────────────────────────────────────────────────────── */
+
+.focus-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+}
+.focus-modal {
+  background: #1a1a2e; color: #e2e2f0;
+  border-radius: 20px; padding: 36px 48px 40px;
+  width: min(520px, 96vw);
+  display: flex; flex-direction: column; align-items: center;
+  gap: 18px; position: relative;
+}
+.focus-close {
+  position: absolute; top: 14px; right: 14px;
+  background: rgba(255,255,255,0.08); border: none; border-radius: 8px;
+  color: #a0a0c0; cursor: pointer; padding: 5px 10px; font-size: 12px;
+}
+.focus-close:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.focus-phase-label {
+  font-size: 12px; color: #6060a0; letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.focus-task-label {
+  font-size: 20px; font-weight: 700; color: #e2e2f0;
+  text-align: center; line-height: 1.3; max-width: 380px;
+}
+.focus-mode-indicator {
+  font-size: 11px; color: #5050a0; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: -4px;
+}
+.focus-timer {
+  font-size: 64px; font-weight: 800; letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #fff; line-height: 1;
+}
+.focus-timer.pomo  { color: #f97316; }
+.focus-timer.break { color: #22c55e; }
+/* Pomodoro progress bar */
+.pomo-progress {
+  width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+  border-radius: 99px; overflow: hidden;
+}
+.pomo-progress-fill { height: 100%; border-radius: 99px; transition: width 0.9s linear; }
+.pomo-progress-fill.work  { background: #f97316; }
+.pomo-progress-fill.break { background: #22c55e; }
+/* Completed session dots */
+.pomo-dots { display: flex; gap: 6px; align-items: center; font-size: 16px; }
+.pomo-dots-label { font-size: 11px; color: #6060a0; margin-left: 4px; }
+/* Break sub-heading */
+.focus-break-heading { font-size: 16px; color: #7878a0; font-weight: 500; }
+/* Focus controls */
+.focus-controls {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+}
+.focus-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: 10px; border: none;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.focus-btn:active { transform: scale(0.97); }
+.focus-btn.primary    { background: #e84a8a; color: #fff; }
+.focus-btn.secondary  { background: rgba(255,255,255,0.1); color: #c0c0e0; }
+.focus-btn.stop       { background: rgba(239,68,68,0.18); color: #f87171; }
+.focus-btn.pomo-switch { background: rgba(249,115,22,0.15); color: #fb923c; }
+.focus-btn:hover { opacity: 0.82; }
+
 /* ── RESPONSIVE: MOBILE ── */
 @media (max-width: 767px) {
   .tab-bar { display: flex; }
@@ -774,4 +922,8 @@ body {
     border-radius: 99px;
     margin: 0 auto 16px;
   }
+
+  /* ── Focus modal: compact on mobile ── */
+  .focus-modal { padding: 28px 20px 32px; gap: 14px; }
+  .focus-timer { font-size: 52px; }
 }
