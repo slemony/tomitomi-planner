@@ -90,6 +90,28 @@ export function getTaskDeadlineDate(task, phase, startDate) {
   return null
 }
 
+// ── Time tracking helpers ────────────────────────────────────────────────
+
+// Total minutes logged for a task, including the currently-running timer if it
+// belongs to this task. Accepts the activeTimer object from appState.
+export function getTaskLoggedMin(task, activeTimer) {
+  const base = (task.timeEntries || []).reduce((sum, e) => sum + (e.minutes || 0), 0)
+  if (activeTimer?.taskId === task.id) {
+    return base + Math.floor((Date.now() - activeTimer.startedAt) / 60000)
+  }
+  return base
+}
+
+// Format a total-minutes number into a human-readable string.
+// 0 → '', 45 → '45m', 90 → '1h 30m', 120 → '2h'
+export function fmtDuration(totalMin) {
+  if (!totalMin) return ''
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  if (h && m) return `${h}h ${m}m`
+  return h ? `${h}h` : `${m}m`
+}
+
 export function getTasksWithDeadlineOn(iso, phases, startDate) {
   const results = []
   getPhases(phases).forEach(phase => {

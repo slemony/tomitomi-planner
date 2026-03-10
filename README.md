@@ -22,6 +22,23 @@ An interactive brand launch planner and calendar for **tomitomi** — built with
 - **Check off tasks** — from the sidebar or the day modal
 - **Overall progress bar** — tracks completion across all phases
 
+### Time Tracking
+- **Live timer** — click ▶ on any task to open Focus Mode; the timer runs and auto-saves when stopped
+- **Time badge** — tasks with logged time show a `🕐 1h 30m` badge; click it to expand the full entry log
+- **Time log** — view all entries per task with date, duration, and work note; delete individual entries
+- **Manual entry** — log past work via date picker, hours/minutes input, and an optional note
+- **Phase totals** — each phase card shows total time logged across its tasks (e.g. `⏱ 3h 45m`)
+- **Sidebar grand total** — overall logged time displayed under the completion percentage
+
+### Focus Mode & Pomodoro
+- **Focus Mode** — full-screen dark overlay showing the current task with a large live timer
+- **Free timer** — counts up; "Stop & Save" logs all elapsed time in one click
+- **Pomodoro mode** — 25-minute countdown with automatic short breaks (5 min) and long breaks (15 min every 4 sessions)
+- **Auto-log** — each completed Pomodoro session is automatically saved as a 25-minute time entry
+- **Session counter** — 🍅 dots show how many sessions you've completed in this focus block
+- **Controls** — Pause, Skip, Reset for Pomodoro; switch between free timer and Pomodoro at any time
+- **Live document title** — browser tab shows the countdown (`🍅 24:12 — task name`) so you can glance at the timer without switching windows
+
 ### Calendar
 - **Phase colour bars** — each phase's date range is colour-coded directly inside each day cell
 - **Phase label chips** — phase emoji + name appear on the phase's first visible day
@@ -46,7 +63,7 @@ An interactive brand launch planner and calendar for **tomitomi** — built with
 
 ### Mobile-Friendly
 - **Bottom tab bar** — switch between Tasks and Calendar on small screens
-- **Task overflow menu** — tap the `⋯` button on any task row to access Set Deadline, Edit, and Delete without cluttering the row
+- **Task overflow menu** — tap the `⋯` button on any task row to access Focus & Timer, Log time, Set Deadline, Edit, and Delete without cluttering the row
 - **Bottom-sheet modals** — modals slide up from the bottom on mobile
 - **Responsive layout** — side-by-side panels on desktop, full-screen tabs on mobile
 
@@ -115,25 +132,26 @@ service cloud.firestore {
 
 ```
 src/
-├── App.jsx                    # Root layout, auth guard, header, tab bar
+├── App.jsx                    # Root layout, auth guard, header, tab bar, FocusModal
 ├── main.jsx
 ├── index.css
 ├── components/
 │   ├── CalendarView.jsx       # Monthly grid, phase bars, legend
 │   ├── DayModal.jsx           # Day detail — notes, milestones, due tasks
 │   ├── DeadlinePicker.jsx     # Inline deadline picker (days or date)
-│   ├── PhaseCard.jsx          # Collapsible phase card with progress bar
+│   ├── FocusModal.jsx         # Full-screen focus overlay + Pomodoro timer
+│   ├── PhaseCard.jsx          # Collapsible phase card with progress bar + time total
 │   ├── PhaseEditModal.jsx     # Add / edit phase overlay
 │   ├── SettingsModal.jsx      # Brand name, start date, workspace sharing
-│   ├── Sidebar.jsx            # Phase list + Add Phase button
-│   └── TaskItem.jsx           # Task row with mobile overflow menu
+│   ├── Sidebar.jsx            # Phase list + Add Phase button + grand total time
+│   └── TaskItem.jsx           # Task row: time badge, log panel, focus button, mobile menu
 ├── context/
-│   ├── AppContext.jsx         # Global state, Firebase sync, auth, workspace
+│   ├── AppContext.jsx         # Global state, Firebase sync, auth, workspace, timer actions
 │   └── useApp.js
 └── lib/
     ├── defaultData.js         # Default phases
     ├── firebase.js            # Firebase initialisation
-    └── utils.js               # Date helpers, phase range, deadline utils
+    └── utils.js               # Date helpers, phase range, deadline utils, time tracking utils
 ```
 
 ### Dependencies
@@ -162,6 +180,10 @@ src/
 | Set a task deadline | Desktop: hover → clock icon · Mobile: ⋯ → Set deadline |
 | Delete a task | Desktop: hover → × icon · Mobile: ⋯ → Delete |
 | Check off a task | Tick the checkbox on the task row or in the day modal |
+| **Start Focus Mode / timer** | Desktop: hover → ▶ icon · Mobile: ⋯ → 🎯 Focus & Timer |
+| **Log time manually** | Click the `🕐` time badge → "+ Add entry" · Mobile: ⋯ → 🕐 Log time |
+| **View / delete time entries** | Click the `🕐` time badge to expand the log |
+| **Switch to Pomodoro** | In Focus Mode → "🍅 Switch to Pomodoro" |
 | Add a day note / milestone | Tap any calendar date |
 | Get your invite link | Settings → copy Invite Link |
 | Join a workspace | Settings → paste link → Join |

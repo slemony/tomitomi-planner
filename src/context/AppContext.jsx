@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore'
 import { auth, db } from '../lib/firebase'
 import { DEFAULT_PHASES } from '../lib/defaultData'
-import { phaseRange } from '../lib/utils'
+import { phaseRange, uid, toISO } from '../lib/utils'
 
 const STORAGE_KEY = 'tomitomi_v1'
 const WS_KEY      = 'tomitomi_wsId'
@@ -29,6 +29,7 @@ const defaultState = {
   completedTasks: {},           // taskId: boolean
   dayNotes:       {},           // 'YYYY-MM-DD': { note, milestone }
   openPhases:     { 1: true },
+  activeTimer:    null,         // { taskId, phaseId, startedAt: number } | null
 }
 
 function loadFromStorage() {
@@ -50,6 +51,7 @@ export function AppProvider({ children }) {
   const [appState, setAppState]     = useState(loadFromStorage)
 
   const [workspaceId, setWorkspaceId] = useState(() => localStorage.getItem(WS_KEY) || null)
+  const [focusMode, setFocusMode]     = useState(null)  // { taskId, phaseId } | null — UI only, not persisted
 
   const workspaceIdRef  = useRef(null)
   const saveTimerRef    = useRef(null)
@@ -222,6 +224,85 @@ export function AppProvider({ children }) {
     setSyncStatus('synced')
   }, [user, loadWorkspace])
 
+  // ── Timer helpers ────────────────────────────────────────────────────
+  // Build a time entry for "right now"
+  const _makeTimerEntry = (minutes, note, source) => {
+    const now = new Date()
+    return { id: uid(), date: toISO(now.getFullYear(), now.getMonth(), now.getDate()), minutes, note, source }
+  }
+
+  // Append an entry to a specific task inside the phases array
+  const _appendEntry = (phases, phaseId, taskId, entry) =>
+    phases.map(p =>
+      p.id === phaseId
+        ? { ...p, tasks: p.tasks.map(t =>
+              t.id === taskId
+                ? { ...t, timeEntries: [...(t.timeEntries || []), entry] }
+                : t
+            )}
+        : p
+    )
+
+  // ── Timer actions ─────────────────────────────────────────────────────
+  const startTimer = useCallback((phaseId, taskId) => {
+    updateState(prev => {
+      let { phases } = prev
+      // Auto-save any currently running timer first (if ≥ 1 min elapsed)
+      if (prev.activeTimer) {
+        const { taskId: pt, phaseId: pp, startedAt } = prev.activeTimer
+        const minutes = Math.floor((Date.now() - startedAt) / 60000)
+        if (minutes >= 1) {
+          phases = _appendEntry(phases, pp, pt, _makeTimerEntry(minutes, '', 'timer'))
+        }
+      }
+      return { ...prev, phases, activeTimer: { taskId, phaseId, startedAt: Date.now() } }
+    })
+  }, [updateState])
+
+  const stopTimer = useCallback((note = '') => {
+    updateState(prev => {
+      if (!prev.activeTimer) return prev
+      const { taskId, phaseId, startedAt } = prev.activeTimer
+      const minutes = Math.floor((Date.now() - startedAt) / 60000)
+      let { phases } = prev
+      if (minutes >= 1) {
+        phases = _appendEntry(phases, phaseId, taskId, _makeTimerEntry(minutes, note, 'timer'))
+      }
+      return { ...prev, phases, activeTimer: null }
+    })
+  }, [updateState])
+
+  const addTimeEntry = useCallback((phaseId, taskId, entry) => {
+    updateState(prev => ({
+      ...prev,
+      phases: _appendEntry(prev.phases, phaseId, taskId, entry),
+    }))
+  }, [updateState])
+
+  const deleteTimeEntry = useCallback((phaseId, taskId, entryId) => {
+    updateState(prev => ({
+      ...prev,
+      phases: prev.phases.map(p =>
+        p.id === phaseId
+          ? { ...p, tasks: p.tasks.map(t =>
+                t.id === taskId
+                  ? { ...t, timeEntries: (t.timeEntries || []).filter(e => e.id !== entryId) }
+                  : t
+              )}
+          : p
+      ),
+    }))
+  }, [updateState])
+
+  // ── Focus mode ────────────────────────────────────────────────────────
+  const enterFocus = useCallback((phaseId, taskId) => {
+    setFocusMode({ phaseId, taskId })
+  }, [])
+
+  const exitFocus = useCallback(() => {
+    setFocusMode(null)
+  }, [])
+
   // ── Handle redirect result on page load ─────────────────────────────
   useEffect(() => {
     getRedirectResult(auth).catch(e => {
@@ -277,6 +358,15 @@ export function AppProvider({ children }) {
     joinWorkspace,
     workspaceId,
     resetAll,
+    // Time tracking
+    startTimer,
+    stopTimer,
+    addTimeEntry,
+    deleteTimeEntry,
+    // Focus mode
+    focusMode,
+    enterFocus,
+    exitFocus,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

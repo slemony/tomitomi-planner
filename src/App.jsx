@@ -7,6 +7,7 @@ import {
 import Sidebar from './components/Sidebar'
 import CalendarView from './components/CalendarView'
 import SettingsModal from './components/SettingsModal'
+import FocusModal from './components/FocusModal'
 
 function SignInOverlay() {
   const { signInWithGoogle, redirecting } = useApp()
@@ -99,7 +100,7 @@ function Header({ onOpenSettings }) {
 }
 
 export default function App() {
-  const { user, redirecting } = useApp()
+  const { user, redirecting, focusMode } = useApp()
   const [activeTab,    setActiveTab]    = useState('cal') // 'tasks' | 'cal'
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -121,6 +122,7 @@ export default function App() {
       </div>
 
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {focusMode    && <FocusModal />}
 
       {/* Mobile tab bar */}
       <div className="tab-bar">
